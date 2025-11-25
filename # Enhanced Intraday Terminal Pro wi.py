@@ -368,9 +368,13 @@ def adx(high, low, close, period=14):
     df["adx"] = df["dx"].rolling(window=period).mean().fillna(0)
     return df["adx"].values
 
-# FIXED Circular Market Mood Gauge Component
+# FIXED Circular Market Mood Gauge Component with Rounded Percentages
 def create_circular_market_mood_gauge(index_name, current_value, change_percent, sentiment_score):
     """Create a circular market mood gauge for Nifty50 and BankNifty"""
+    
+    # Round sentiment score and change percentage
+    sentiment_score = round(sentiment_score)
+    change_percent = round(change_percent, 2)
     
     # Determine sentiment color and text
     if sentiment_score >= 70:
@@ -578,84 +582,82 @@ class EnhancedDataManager:
         return accuracy
 
     def calculate_market_profile_signals(self, symbol):
-        """Calculate market profile signals for bullish/bearish analysis based on 15min data"""
+        """Calculate market profile signals with improved timeframe alignment"""
         try:
-            data = self.get_stock_data(symbol, "15m")
-            if len(data) < 50:
+            # Get 15min data for market profile analysis
+            data_15m = self.get_stock_data(symbol, "15m")
+            if len(data_15m) < 50:
                 return {"signal": "NEUTRAL", "confidence": 0.5, "reason": "Insufficient data"}
             
-            current_price = float(data["Close"].iloc[-1])
-            ema8 = float(data["EMA8"].iloc[-1])
-            ema21 = float(data["EMA21"].iloc[-1])
-            ema50 = float(data["EMA50"].iloc[-1])
-            rsi_val = float(data["RSI14"].iloc[-1])
-            vwap = float(data["VWAP"].iloc[-1])
-            poc = float(data["POC"].iloc[-1])
-            support = float(data["Support"].iloc[-1])
-            resistance = float(data["Resistance"].iloc[-1])
-            macd_line = float(data["MACD"].iloc[-1])
-            macd_signal = float(data["MACD_Signal"].iloc[-1])
-            adx_val = float(data["ADX"].iloc[-1]) if "ADX" in data.columns else 20
+            # Get 5min data for more current market sentiment
+            data_5m = self.get_stock_data(symbol, "5m")
             
-            # Calculate bullish/bearish score based on 15min candle close
+            current_price_15m = float(data_15m["Close"].iloc[-1])
+            current_price_5m = float(data_5m["Close"].iloc[-1]) if len(data_5m) > 0 else current_price_15m
+            
+            # Calculate signals from both timeframes
+            ema8_15m = float(data_15m["EMA8"].iloc[-1])
+            ema21_15m = float(data_15m["EMA21"].iloc[-1])
+            ema50_15m = float(data_15m["EMA50"].iloc[-1])
+            rsi_val_15m = float(data_15m["RSI14"].iloc[-1])
+            vwap_15m = float(data_15m["VWAP"].iloc[-1])
+            
+            # Get 5min indicators for current sentiment
+            if len(data_5m) > 0:
+                rsi_val_5m = float(data_5m["RSI14"].iloc[-1])
+                ema8_5m = float(data_5m["EMA8"].iloc[-1])
+                ema21_5m = float(data_5m["EMA21"].iloc[-1])
+            else:
+                rsi_val_5m = rsi_val_15m
+                ema8_5m = ema8_15m
+                ema21_5m = ema21_15m
+            
+            # Calculate bullish/bearish score with timeframe alignment
             bullish_score = 0
             bearish_score = 0
             
-            # Price relative to EMAs (15min)
-            if current_price > ema8 > ema21 > ema50:
+            # 15min trend analysis
+            if current_price_15m > ema8_15m > ema21_15m > ema50_15m:
                 bullish_score += 3
-            elif current_price < ema8 < ema21 < ema50:
+            elif current_price_15m < ema8_15m < ema21_15m < ema50_15m:
                 bearish_score += 3
                 
-            # Price relative to VWAP (15min)
-            if current_price > vwap:
+            # 5min momentum (more weight for current sentiment)
+            if current_price_5m > ema8_5m > ema21_5m:
                 bullish_score += 2
-            else:
+            elif current_price_5m < ema8_5m < ema21_5m:
                 bearish_score += 2
                 
-            # Price relative to POC (15min)
-            if current_price > poc:
+            # RSI alignment across timeframes
+            if rsi_val_15m > 55 and rsi_val_5m > 50:
                 bullish_score += 1
-            else:
+            elif rsi_val_15m < 45 and rsi_val_5m < 50:
                 bearish_score += 1
+            elif (rsi_val_15m > 55 and rsi_val_5m < 50) or (rsi_val_15m < 45 and rsi_val_5m > 50):
+                # Conflicting signals - reduce confidence
+                bullish_score -= 1
+                bearish_score -= 1
                 
-            # RSI condition (15min)
-            if rsi_val > 55:
-                bullish_score += 1
-            elif rsi_val < 45:
-                bearish_score += 1
-                
-            # MACD condition (15min)
-            if macd_line > macd_signal:
-                bullish_score += 1
-            else:
-                bearish_score += 1
-                
-            # Support/Resistance (15min)
-            if current_price > resistance * 0.995:  # Near resistance
+            # Price relative to VWAP
+            if current_price_15m > vwap_15m and current_price_5m > vwap_15m:
                 bullish_score += 2
-            elif current_price < support * 1.005:   # Near support
+            elif current_price_15m < vwap_15m and current_price_5m < vwap_15m:
                 bearish_score += 2
                 
-            # ADX trend strength
-            if adx_val > 25:
-                if bullish_score > bearish_score:
-                    bullish_score += 1
-                else:
-                    bearish_score += 1
-                
-            total_score = bullish_score + bearish_score
-            if total_score == 0:
-                return {"signal": "NEUTRAL", "confidence": 0.5, "reason": "Balanced indicators"}
-                
-            bullish_ratio = bullish_score / total_score
+            total_score = max(bullish_score + bearish_score, 1)  # Avoid division by zero
+            bullish_ratio = (bullish_score + 5) / (total_score + 10)  # Normalize to 0-1
+            
+            # Adjust confidence based on timeframe alignment
+            price_alignment = 1.0 if abs(current_price_15m - current_price_5m) / current_price_15m < 0.01 else 0.7
+            
+            final_confidence = min(0.95, bullish_ratio * price_alignment)
             
             if bullish_ratio >= 0.65:
-                return {"signal": "BULLISH", "confidence": bullish_ratio, "reason": "Strong bullish alignment on 15min"}
+                return {"signal": "BULLISH", "confidence": final_confidence, "reason": "Strong bullish alignment across timeframes"}
             elif bullish_ratio <= 0.35:
-                return {"signal": "BEARISH", "confidence": 1 - bullish_ratio, "reason": "Strong bearish alignment on 15min"}
+                return {"signal": "BEARISH", "confidence": final_confidence, "reason": "Strong bearish alignment across timeframes"}
             else:
-                return {"signal": "NEUTRAL", "confidence": 0.5, "reason": "Mixed signals on 15min"}
+                return {"signal": "NEUTRAL", "confidence": 0.5, "reason": "Mixed signals across timeframes"}
                 
         except Exception as e:
             return {"signal": "NEUTRAL", "confidence": 0.5, "reason": f"Error: {str(e)}"}
@@ -1392,9 +1394,9 @@ try:
     nifty_prev = float(nifty_data["Close"].iloc[-2])
     nifty_change = ((nifty_current - nifty_prev) / nifty_prev) * 100
     
-    # Calculate Nifty sentiment score (0-100)
+    # Calculate Nifty sentiment score (0-100) with rounding
     nifty_sentiment = 50 + (nifty_change * 8)  # Base 50 + amplified change
-    nifty_sentiment = max(0, min(100, nifty_sentiment))
+    nifty_sentiment = max(0, min(100, round(nifty_sentiment)))
     
 except Exception:
     nifty_current = 22000
@@ -1407,16 +1409,16 @@ try:
     banknifty_prev = float(banknifty_data["Close"].iloc[-2])
     banknifty_change = ((banknifty_current - banknifty_prev) / banknifty_prev) * 100
     
-    # Calculate BankNifty sentiment score
+    # Calculate BankNifty sentiment score with rounding
     banknifty_sentiment = 50 + (banknifty_change * 8)
-    banknifty_sentiment = max(0, min(100, banknifty_sentiment))
+    banknifty_sentiment = max(0, min(100, round(banknifty_sentiment)))
     
 except Exception:
     banknifty_current = 48000
     banknifty_change = 0.25
     banknifty_sentiment = 70
 
-# Display Circular Market Mood Gauges
+# Display Circular Market Mood Gauges with Rounded Percentages
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.markdown(create_circular_market_mood_gauge("NIFTY 50", nifty_current, nifty_change, nifty_sentiment), unsafe_allow_html=True)
@@ -1680,13 +1682,10 @@ with tabs[2]:
     else:
         st.info("No open positions.")
 
-# Continue with the rest of your tabs (Market Profile, RSI Extreme, Backtest, Strategies)
-# ... [rest of your tab implementations remain the same]
-
 with tabs[3]:
     st.session_state.current_tab = "📊 Market Profile"
     st.subheader("Market Profile Analysis - Nifty 50/100")
-    st.write("Automated bullish/bearish signal analysis based on 15-minute candle data")
+    st.write("Enhanced bullish/bearish signal analysis with timeframe alignment")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -1751,8 +1750,8 @@ with tabs[3]:
 
 with tabs[4]:
     st.session_state.current_tab = "📉 RSI Extreme"
-    st.subheader("RSI Extreme Scanner")
-    st.write("Automated scan for stocks with RSI in oversold (<30) and overbought (>70) zones")
+    st.subheader("RSI Extreme Scanner - 15min Timeframe")
+    st.write("Automated scan for stocks with RSI in oversold (<30) and overbought (>70) zones using 15min data")
     
     # Check if we should run RSI scan (every 3rd refresh)
     should_run_rsi = data_manager.should_run_rsi_scan()
@@ -1776,6 +1775,7 @@ with tabs[4]:
         for idx, symbol in enumerate(stocks):
             progress_bar.progress((idx + 1) / len(stocks))
             try:
+                # Using 15min timeframe specifically for RSI scanning
                 data = data_manager.get_stock_data(symbol, "15m")
                 if data is not None and len(data) > 14:
                     current_rsi = float(data["RSI14"].iloc[-1])
