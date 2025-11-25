@@ -10,7 +10,7 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 # Configuration
-st.set_page_config(page_title="Intraday Terminal Pro - Enhanced", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Rantv Intraday Terminal Pro - Enhanced", layout="wide", initial_sidebar_state="expanded")
 IND_TZ = pytz.timezone("Asia/Kolkata")
 
 CAPITAL = 2_000_000.0
@@ -1918,4 +1918,5 @@ with tabs[6]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
 
