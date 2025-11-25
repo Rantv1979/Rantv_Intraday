@@ -1,4 +1,4 @@
-# Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis
+# Rantv Intraday Trading Signals & Market Analysis
 import time
 from datetime import datetime, time as dt_time
 import numpy as np
@@ -1918,3 +1918,4 @@ with tabs[6]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
