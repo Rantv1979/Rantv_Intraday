@@ -1372,7 +1372,7 @@ if "current_tab" not in st.session_state:
 st.session_state.refresh_count += 1
 
 # Enhanced UI with Circular Market Mood Gauges
-st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Intraday Terminal Pro - Enhanced BUY/SELL Signals</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Rantv Intraday Terminal Pro BUY/SELL Signals</h1>", unsafe_allow_html=True)
 
 # Manual refresh button instead of auto-refresh to prevent tab switching
 col1, col2, col3 = st.columns([2, 1, 1])
@@ -1918,5 +1918,6 @@ with tabs[6]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
 
 
