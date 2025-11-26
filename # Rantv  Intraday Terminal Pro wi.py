@@ -770,9 +770,9 @@ class BacktestEngine:
         else:
             accuracy = wins / total_signals
         
-        # Filter: Only return strategies with >65% historical accuracy
-        if accuracy >= 0.65:
-            return max(0.65, min(0.85, accuracy))
+        # Filter: Only return strategies with >70% historical accuracy
+        if accuracy >= 0.70:
+            return max(0.70, min(0.85, accuracy))
         else:
             return 0.0  # Don't generate trades for strategies with <65% accuracy
 
@@ -2130,5 +2130,6 @@ with tabs[7]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
 
 
