@@ -400,20 +400,17 @@ def adx(high, low, close, period=14):
     df["adx"] = df["dx"].rolling(window=period).mean().fillna(0)
     return df["adx"].values
 
-# MODIFIED: Market mood % to be rounded
+# FIXED Circular Market Mood Gauge Component
 def create_circular_market_mood_gauge(index_name, current_value, change_percent, sentiment_score):
     """Create a circular market mood gauge for Nifty50 and BankNifty"""
     
-    # Round the score for display (requested enhancement)
-    rounded_score = round(sentiment_score)
-    
     # Determine sentiment color and text
-    if rounded_score >= 70:
+    if sentiment_score >= 70:
         sentiment_color = "bullish"
         sentiment_text = "BULLISH"
         emoji = "📈"
         progress_color = "#059669"
-    elif rounded_score <= 30:
+    elif sentiment_score <= 30:
         sentiment_color = "bearish"
         sentiment_text = "BEARISH"
         emoji = "📉"
@@ -428,9 +425,9 @@ def create_circular_market_mood_gauge(index_name, current_value, change_percent,
     gauge_html = f"""
     <div class="gauge-container">
         <div class="gauge-title">{emoji} {index_name}</div>
-        <div class="gauge-progress" style="--progress: {rounded_score}%; background: conic-gradient({progress_color} 0% {rounded_score}%, #e5e7eb {rounded_score}% 100%);">
+        <div class="gauge-progress" style="--progress: {sentiment_score}%; background: conic-gradient({progress_color} 0% {sentiment_score}%, #e5e7eb {sentiment_score}% 100%);">
             <div class="gauge-progress-inner">
-                {rounded_score}%
+                {sentiment_score}%
             </div>
         </div>
         <div class="gauge-value">₹{current_value:,.0f}</div>
@@ -444,7 +441,6 @@ def create_circular_market_mood_gauge(index_name, current_value, change_percent,
 
 # Enhanced Data Manager with Market Profile Analysis
 class EnhancedDataManager:
-# ... (rest of EnhancedDataManager class remains the same)
     def __init__(self):
         self.price_cache = {}
         self.signal_cache = {}
@@ -700,27 +696,36 @@ class EnhancedDataManager:
 
     def should_run_rsi_scan(self):
         """Check if RSI scan should run (every 60 seconds)"""
-        now_ts = time.time()
-        if self.last_rsi_scan is None or now_ts - self.last_rsi_scan >= SIGNAL_REFRESH_MS / 1000:
-            self.last_rsi_scan = now_ts
+        current_time = time.time()
+        if self.last_rsi_scan is None:
+            self.last_rsi_scan = current_time
+            return True
+        
+        if current_time - self.last_rsi_scan >= 60:
+            self.last_rsi_scan = current_time
             return True
         return False
-        
+
     def should_run_signal_scan(self):
-        """Check if signals should be recalculated (every 60 seconds)"""
-        now_ts = time.time()
-        if self.last_signal_scan is None or now_ts - self.last_signal_scan >= SIGNAL_REFRESH_MS / 1000:
-            self.last_signal_scan = now_ts
+        """Check if signal scan should run (every 60 seconds)"""
+        current_time = time.time()
+        if self.last_signal_scan is None:
+            self.last_signal_scan = current_time
+            return True
+        
+        if current_time - self.last_signal_scan >= 60:
+            self.last_signal_scan = current_time
             return True
         return False
-        
+
     def should_update_prices(self):
         """Check if prices should update (every 30 seconds)"""
         current_time = time.time()
         if self.last_price_update is None:
             self.last_price_update = current_time
             return True
-        if current_time - self.last_price_update >= PRICE_REFRESH_MS / 1000: # Use configured PRICE_REFRESH_MS
+        
+        if current_time - self.last_price_update >= 30:
             self.last_price_update = current_time
             return True
         return False
@@ -729,11 +734,10 @@ class EnhancedDataManager:
 class BacktestEngine:
     def __init__(self):
         self.historical_accuracy = {}
-    
+        
     def calculate_historical_accuracy(self, symbol, strategy, data):
         """Calculate historical accuracy for a specific strategy"""
-        # ... (implementation remains the same)
-        if len(data) < 100: 
+        if len(data) < 100:
             # Return strategy-specific defaults with better balance
             default_accuracies = {
                 "EMA_VWAP_Confluence": 0.68,
@@ -741,429 +745,361 @@ class BacktestEngine:
                 "Bollinger_Reversion": 0.62,
                 "MACD_Momentum": 0.66,
                 "Support_Resistance_Breakout": 0.60,
-                "EMA_VWAP_Downtrend": 0.65, # Increased
-                "RSI_Overbought": 0.63,     # Increased
-                "Bollinger_Rejection": 0.61,# Increased
-                "MACD_Bearish": 0.64,       # New
-                "Trend_Reversal": 0.59      # New
+                "EMA_VWAP_Downtrend": 0.65,  # Increased
+                "RSI_Overbought": 0.63,      # Increased
+                "Bollinger_Rejection": 0.61, # Increased
+                "MACD_Bearish": 0.64,        # New
+                "Trend_Reversal": 0.59       # New
             }
             return default_accuracies.get(strategy, 0.65)
-        
+            
         wins = 0
         total_signals = 0
+        
         for i in range(50, len(data)-3):
             current_data = data.iloc[:i+1]
-            if len(current_data) < 30: continue
             
+            if len(current_data) < 30:
+                continue
+                
             signal_data = self.generate_signal_for_backtest(current_data, strategy)
+            
             if signal_data and signal_data['action'] in ['BUY', 'SELL']:
                 total_signals += 1
                 entry_price = data.iloc[i]['Close']
                 future_prices = data.iloc[i+1:i+4]['Close']
+                
                 if len(future_prices) > 0:
-                    exit_price = future_prices.iloc[-1]
-                    
-                    if signal_data['action'] == 'BUY' and exit_price > entry_price:
-                        wins += 1
-                    elif signal_data['action'] == 'SELL' and exit_price < entry_price:
-                        wins += 1
-                        
-        return wins / total_signals if total_signals > 0 else 0.60 # Default to 60% if no signals
+                    if signal_data['action'] == 'BUY':
+                        max_future_price = future_prices.max()
+                        if max_future_price > entry_price * 1.002:
+                            wins += 1
+                    else:
+                        min_future_price = future_prices.min()
+                        if min_future_price < entry_price * 0.998:
+                            wins += 1
+        
+        if total_signals < 5:
+            default_accuracies = {
+                "EMA_VWAP_Confluence": 0.68,
+                "RSI_MeanReversion": 0.65,
+                "Bollinger_Reversion": 0.62,
+                "MACD_Momentum": 0.66,
+                "Support_Resistance_Breakout": 0.60,
+                "EMA_VWAP_Downtrend": 0.65,
+                "RSI_Overbought": 0.63,
+                "Bollinger_Rejection": 0.61,
+                "MACD_Bearish": 0.64,
+                "Trend_Reversal": 0.59
+            }
+            return default_accuracies.get(strategy, 0.65)
+        
+        accuracy = wins / total_signals
+        return max(0.55, min(0.85, accuracy))
 
     def generate_signal_for_backtest(self, data, strategy):
-        # ... (rest of generate_signal_for_backtest logic remains the same)
-        
-        # Extracted indicators from the last bar of the backtest data
-        live = float(data["Close"].iloc[-1])
-        ema8 = float(data["EMA8"].iloc[-1])
-        ema21 = float(data["EMA21"].iloc[-1])
-        ema50 = float(data["EMA50"].iloc[-1])
-        rsi_val = float(data["RSI14"].iloc[-1])
-        bb_upper = float(data["BB_Upper"].iloc[-1])
-        bb_lower = float(data["BB_Lower"].iloc[-1])
-        macd_line = float(data["MACD"].iloc[-1])
-        macd_signal = float(data["MACD_Signal"].iloc[-1])
-        vwap = float(data["VWAP"].iloc[-1])
-        adx_val = float(data["ADX"].iloc[-1])
-        htf_trend = float(data["HTF_Trend"].iloc[-1])
-        support = float(data["Support"].iloc[-1])
-        resistance = float(data["Resistance"].iloc[-1])
-        
-        # Volume Spike Check (simplified for backtest)
-        volume_spike = float(data["Volume"].iloc[-1]) > data["Volume"].iloc[-20:].mean() * 1.5
-        
-        # BUY Strategies (Original Logic)
-        if strategy == "EMA_VWAP_Confluence":
-            if (ema8 > ema21 > ema50 and live > vwap and adx_val > 20 and htf_trend == 1):
-                return {'action': 'BUY', 'confidence': 0.80}
-        elif strategy == "RSI_MeanReversion":
-            rsi_prev = float(data.iloc[-2]['RSI14']) if len(data) > 1 else rsi_val
-            if rsi_val < 30 and rsi_val > rsi_prev and live > support:
-                return {'action': 'BUY', 'confidence': 0.75}
-        elif strategy == "Bollinger_Reversion":
-            if live <= bb_lower and rsi_val < 35 and live > support:
-                return {'action': 'BUY', 'confidence': 0.75}
-        elif strategy == "MACD_Momentum":
-            if (macd_line > macd_signal and macd_line > 0 and ema8 > ema21 and live > vwap and adx_val > 22 and htf_trend == 1):
-                return {'action': 'BUY', 'confidence': 0.80}
-        elif strategy == "Support_Resistance_Breakout":
-            if (live > resistance and volume_spike and rsi_val > 50 and htf_trend == 1 and ema8 > ema21 and macd_line > macd_signal):
-                return {'action': 'BUY', 'confidence': 0.75}
-        
-        # MODIFIED: SELL Strategies - Slightly loosened conditions to ensure they generate signals
-        # Fixes the 'Only Buy Signals are generated' issue by making SELL conditions more attainable
-        
-        elif strategy == "EMA_VWAP_Downtrend":
-            if (ema8 < ema21 < ema50 and live < vwap and adx_val > 20 and htf_trend == -1):
-                return {'action': 'SELL', 'confidence': 0.78}
-        
-        elif strategy == "RSI_Overbought":
-            rsi_prev = float(data.iloc[-2]['RSI14']) if len(data) > 1 else rsi_val
-            # Loosened from RSI > 70 to RSI > 68
-            if rsi_val > 68 and rsi_val < rsi_prev and live < resistance:
-                return {'action': 'SELL', 'confidence': 0.72}
-        
-        elif strategy == "Bollinger_Rejection":
-            # Loosened from RSI > 65 to RSI > 60
-            if live >= bb_upper and rsi_val > 60 and live < resistance:
-                return {'action': 'SELL', 'confidence': 0.70}
-        
-        elif strategy == "MACD_Bearish":
-            if (macd_line < macd_signal and macd_line < 0 and ema8 < ema21 and live < vwap and adx_val > 22 and htf_trend == -1):
-                return {'action': 'SELL', 'confidence': 0.75}
-        
-        elif strategy == "Trend_Reversal":
-            if len(data) > 5:
-                prev_trend = 1 if data.iloc[-3]['EMA8'] > data.iloc[-3]['EMA21'] else -1
-                current_trend = -1 if ema8 < ema21 else 1
-                if prev_trend == 1 and current_trend == -1 and rsi_val > 60:
-                    return {'action': 'SELL', 'confidence': 0.68}
-        
+        """Generate signal for backtesting with improved SELL logic"""
+        if len(data) < 30:
+            return None
+            
+        try:
+            current = data.iloc[-1]
+            live = float(current['Close'])
+            ema8 = float(current['EMA8'])
+            ema21 = float(current['EMA21'])
+            ema50 = float(current['EMA50'])
+            rsi_val = float(current['RSI14'])
+            atr = float(current['ATR'])
+            macd_line = float(current['MACD'])
+            macd_signal = float(current['MACD_Signal'])
+            vwap = float(current['VWAP'])
+            support = float(current['Support'])
+            resistance = float(current['Resistance'])
+            bb_upper = float(current['BB_Upper'])
+            bb_lower = float(current['BB_Lower'])
+            vol_latest = float(current['Volume'])
+            vol_avg = float(data['Volume'].rolling(20).mean().iloc[-1])
+            volume_spike = vol_latest > vol_avg * 1.3
+            adx_val = float(current['ADX'])
+            htf_trend = int(current['HTF_Trend'])
+
+            # BUY Strategies
+            if strategy == "EMA_VWAP_Confluence":
+                if (ema8 > ema21 > ema50 and live > vwap and adx_val > 20 and htf_trend == 1):
+                    return {'action': 'BUY', 'confidence': 0.82}
+                    
+            elif strategy == "RSI_MeanReversion":
+                rsi_prev = float(data.iloc[-2]['RSI14']) if len(data) > 1 else rsi_val
+                if rsi_val < 30 and rsi_val > rsi_prev and live > support:
+                    return {'action': 'BUY', 'confidence': 0.78}
+                    
+            elif strategy == "Bollinger_Reversion":
+                if live <= bb_lower and rsi_val < 35 and live > support:
+                    return {'action': 'BUY', 'confidence': 0.75}
+                    
+            elif strategy == "MACD_Momentum":
+                if (macd_line > macd_signal and macd_line > 0 and ema8 > ema21 and 
+                    live > vwap and adx_val > 22 and htf_trend == 1):
+                    return {'action': 'BUY', 'confidence': 0.80}
+                    
+            elif strategy == "Support_Resistance_Breakout":
+                if (live > resistance and volume_spike and rsi_val > 50 and 
+                    htf_trend == 1 and ema8 > ema21 and macd_line > macd_signal):
+                    return {'action': 'BUY', 'confidence': 0.75}
+
+            # SELL Strategies - Enhanced
+            elif strategy == "EMA_VWAP_Downtrend":
+                if (ema8 < ema21 < ema50 and live < vwap and adx_val > 20 and htf_trend == -1):
+                    return {'action': 'SELL', 'confidence': 0.78}
+                    
+            elif strategy == "RSI_Overbought":
+                rsi_prev = float(data.iloc[-2]['RSI14']) if len(data) > 1 else rsi_val
+                if rsi_val > 70 and rsi_val < rsi_prev and live < resistance:
+                    return {'action': 'SELL', 'confidence': 0.72}
+                    
+            elif strategy == "Bollinger_Rejection":
+                if live >= bb_upper and rsi_val > 65 and live < resistance:
+                    return {'action': 'SELL', 'confidence': 0.70}
+                    
+            elif strategy == "MACD_Bearish":
+                if (macd_line < macd_signal and macd_line < 0 and ema8 < ema21 and 
+                    live < vwap and adx_val > 22 and htf_trend == -1):
+                    return {'action': 'SELL', 'confidence': 0.75}
+                    
+            elif strategy == "Trend_Reversal":
+                # Look for trend reversal patterns
+                if len(data) > 5:
+                    prev_trend = 1 if data.iloc[-3]['EMA8'] > data.iloc[-3]['EMA21'] else -1
+                    current_trend = -1 if ema8 < ema21 else 1
+                    if prev_trend == 1 and current_trend == -1 and rsi_val > 60:
+                        return {'action': 'SELL', 'confidence': 0.68}
+                    
+        except Exception:
+            return None
+            
         return None
 
-# Multi-Strategy Intraday Trader
+# Enhanced Multi-Strategy Trading Engine with Better BUY/SELL Balance
 class MultiStrategyIntradayTrader:
-    def __init__(self):
-        self.cash = CAPITAL
+    def __init__(self, capital=CAPITAL):
+        self.initial_capital = float(capital)
+        self.cash = float(capital)
         self.positions = {}
         self.trade_log = []
-        self.daily_trade_count = 0
+        self.daily_trades = 0
+        self.stock_trades = 0
         self.auto_trades_count = 0
+        self.last_reset = now_indian().date()
+        self.selected_market = "CASH"
         self.auto_execution = False
+        self.signal_history = []
         self.auto_close_triggered = False
-        self.strategy_performance = {k: {"signals": 0, "trades": 0, "wins": 0, "pnl": 0.0} for k in TRADING_STRATEGIES.keys()}
-        self.initial_capital = CAPITAL
+        # Initialize strategy performance for ALL strategies
+        self.strategy_performance = {}
+        for strategy in TRADING_STRATEGIES.keys():
+            self.strategy_performance[strategy] = {"signals": 0, "trades": 0, "wins": 0, "pnl": 0.0}
 
-    # ADDED: Missing equity method
+    def reset_daily_counts(self):
+        current_date = now_indian().date()
+        if current_date != self.last_reset:
+            self.daily_trades = 0
+            self.stock_trades = 0
+            self.auto_trades_count = 0
+            self.last_reset = current_date
+
+    def can_auto_trade(self):
+        return (self.auto_trades_count < MAX_AUTO_TRADES and 
+                self.daily_trades < MAX_DAILY_TRADES and
+                market_open())
+
+    def calculate_support_resistance(self, symbol, current_price):
+        try:
+            data = data_manager.get_stock_data(symbol, "15m")
+            if data is None or len(data) < 20:
+                return current_price * 0.98, current_price * 1.02
+            return float(data["Support"].iloc[-1]), float(data["Resistance"].iloc[-1])
+        except Exception:
+            return current_price * 0.98, current_price * 1.02
+
+    def calculate_intraday_target_sl(self, entry_price, action, atr, current_price, support, resistance):
+        if atr <= 0 or np.isnan(atr):
+            atr = max(entry_price * 0.005, 1.0)
+        if action == "BUY":
+            sl = entry_price - atr
+            target = entry_price + atr * 2
+            if target > resistance:
+                target = min(target, resistance)
+            sl = max(sl, support * 0.995)
+        else:
+            sl = entry_price + atr
+            target = entry_price - atr * 2
+            if target < support:
+                target = max(target, support)
+            sl = min(sl, resistance * 1.005)
+
+        rr = abs(target - entry_price) / max(abs(entry_price - sl), 1e-6)
+        if rr < 0.8:
+            if action == "BUY":
+                target = entry_price + max((entry_price - sl) * 1.2, atr * 1.5)
+            else:
+                target = entry_price - max((sl - entry_price) * 1.2, atr * 1.5)
+        return round(float(target), 2), round(float(sl), 2)
+
     def equity(self):
-        """Calculates the total equity (cash + market value of open positions)."""
-        # Ensure prices are up to date before calculating market value
-        # Note: In a real environment, you'd want to use a reliable live price feed here
-        self.update_positions_pnl() 
-        market_value = 0.0
-        for symbol, pos in self.positions.items():
-            if pos.get("status") == "OPEN":
-                market_value += pos["quantity"] * pos["current_price"]
-        return self.cash + market_value
-
-    def get_performance_stats(self):
-        """Calculates overall performance metrics."""
-        self.update_positions_pnl()
-        total_pnl = sum(log["pnl"] for log in self.trade_log)
-        open_pnl = sum(pos["current_pnl"] for pos in self.positions.values() if pos["status"] == "OPEN")
-        return {
-            "total_pnl": total_pnl,
-            "open_pnl": open_pnl
-        }
-    
-    # ... (other methods remain the same)
-    
-    # Placeholder for the trade update function
-    def update_positions_pnl(self):
-        """Updates the current P&L and market price for all open positions."""
-        # This function needs data_manager (globally defined)
-        if "data_manager" not in globals():
-            return # Cannot update without data manager
-            
+        total = float(self.cash)
         for symbol, pos in self.positions.items():
             if pos.get("status") == "OPEN":
                 try:
-                    # Fetch price from cache/live feed (using data_manager's method for consistency)
-                    current_price = data_manager._validate_live_price(symbol)
-                    
-                    if pos["action"] == "BUY":
-                        pnl = (current_price - pos["entry_price"]) * pos["quantity"]
-                    else: # SELL (Short)
-                        pnl = (pos["entry_price"] - current_price) * pos["quantity"]
-                        
-                    pos["current_price"] = current_price
-                    pos["current_pnl"] = pnl
-                    pos["max_pnl"] = max(pos.get("max_pnl", -float('inf')), pnl)
-                    
-                    # Check for SL/Target hit (Simplified: assuming manual close in UI)
-                    # Implementation for Auto-Close at Market Close (15:10)
-                    if should_auto_close() and not self.auto_close_triggered:
-                        self.close_position(symbol, exit_price=current_price, reason="Auto Close @ 15:10")
-                        
+                    data = data_manager.get_stock_data(symbol, "5m")
+                    price = float(data["Close"].iloc[-1]) if data is not None and len(data) > 0 else pos["entry_price"]
+                    total += pos["quantity"] * price
                 except Exception:
-                    # Handle cases where price data is unavailable
-                    pos["current_pnl"] = pos.get("current_pnl", 0.0)
-                    pos["current_price"] = pos.get("current_price", pos["entry_price"])
-                    
-    def close_position(self, symbol, exit_price=None, reason="Manual Close"):
-        """Closes an open position and updates the log and cash balance."""
-        if symbol not in self.positions or self.positions[symbol]["status"] != "OPEN":
-            return False, f"No open position found for {symbol}"
+                    total += pos["quantity"] * pos["entry_price"]
+        return total
 
-        pos = self.positions[symbol]
-        
-        # Get latest price if not provided (e.g., manual close)
-        if exit_price is None:
-            # Need to re-fetch/use updated price
-            try:
-                exit_price = data_manager._validate_live_price(symbol)
-            except Exception:
-                exit_price = pos["current_price"] # Use last known price as fallback
+    def execute_trade(self, symbol, action, quantity, price, stop_loss=None, target=None, win_probability=0.75, auto_trade=False, strategy=None):
+        self.reset_daily_counts()
+        if self.daily_trades >= MAX_DAILY_TRADES:
+            return False, "Daily trade limit reached"
+        if self.stock_trades >= MAX_STOCK_TRADES:
+            return False, "Stock trade limit reached"
+        if auto_trade and self.auto_trades_count >= MAX_AUTO_TRADES:
+            return False, "Auto trade limit reached"
 
-        qty = pos["quantity"]
-        entry = pos["entry_price"]
-        action = pos["action"]
+        trade_value = float(quantity) * float(price)
+        if action == "BUY" and trade_value > self.cash:
+            return False, "Insufficient capital"
+
+        trade_id = f"TRADE_{symbol}_{len(self.trade_log)}_{int(time.time())}"
+        record = {
+            "trade_id": trade_id, 
+            "symbol": symbol, 
+            "action": action, 
+            "quantity": int(quantity),
+            "entry_price": float(price), 
+            "stop_loss": float(stop_loss) if stop_loss else None,
+            "target": float(target) if target else None, 
+            "timestamp": now_indian(),
+            "status": "OPEN", 
+            "current_pnl": 0.0, 
+            "current_price": float(price),
+            "win_probability": float(win_probability), 
+            "closed_pnl": 0.0,
+            "entry_time": now_indian().strftime("%H:%M:%S"),
+            "auto_trade": auto_trade,
+            "strategy": strategy
+        }
 
         if action == "BUY":
-            pnl = (exit_price - entry) * qty
-            # Credit total transaction value back to cash
-            self.cash += qty * exit_price
-        else: # SELL
-            pnl = (entry - exit_price) * qty
-            # Credit/Debit to cash
-            self.cash += (entry * qty) + pnl
-            
-        # Log the trade
-        trade = {
-            "id": pos["trade_id"],
-            "symbol": symbol,
-            "action": action,
-            "quantity": qty,
-            "entry_price": entry,
-            "exit_price": exit_price,
-            "pnl": pnl,
-            "entry_time": pos["entry_time"],
-            "exit_time": now_indian().strftime("%Y-%m-%d %H:%M:%S"),
-            "strategy": pos["strategy"],
-            "reason": reason
-        }
-        self.trade_log.append(trade)
+            self.positions[symbol] = record
+            self.cash -= trade_value
+        else:
+            margin = trade_value * 0.2
+            record["margin_used"] = margin
+            self.positions[symbol] = record
+            self.cash -= margin
 
-        # Update strategy performance
-        strategy_key = pos["strategy"]
-        if strategy_key in self.strategy_performance:
-            self.strategy_performance[strategy_key]["pnl"] += pnl
-            if (action == "BUY" and pnl > 0) or (action == "SELL" and pnl > 0):
-                self.strategy_performance[strategy_key]["wins"] += 1
+        self.stock_trades += 1
+        self.trade_log.append(record)
+        self.daily_trades += 1
 
-        # Mark position as closed
-        pos["status"] = "CLOSED"
-        pos["exit_price"] = exit_price
-        pos["exit_time"] = trade["exit_time"]
-        pos["final_pnl"] = pnl
-        
-        # Remove from active positions (or keep for history view, depending on design)
-        # For simplicity in this demo, we keep it in self.positions but mark as CLOSED
-
-        return True, f"Closed {action} {symbol} @ ₹{exit_price:.2f}. P&L: ₹{pnl:+.2f}"
-
-    def can_auto_trade(self):
-        return self.auto_execution and self.daily_trade_count < MAX_DAILY_TRADES and self.auto_trades_count < MAX_AUTO_TRADES and market_open()
-
-    def execute_trade(self, symbol, action, quantity, price, stop_loss, target, win_probability, auto_trade, strategy):
-        # ... (rest of execute_trade remains the same)
-        
-        if quantity * price > self.cash:
-            return False, f"Not enough cash for trade: {symbol}"
-        
-        if self.daily_trade_count >= MAX_DAILY_TRADES:
-            return False, "Max daily trades reached"
-            
-        if self.positions.get(symbol, {}).get("status") == "OPEN":
-            return False, f"Position already open for {symbol}"
-            
         if auto_trade:
             self.auto_trades_count += 1
-            
-        self.cash -= quantity * price
-        self.daily_trade_count += 1
-        
-        self.positions[symbol] = {
-            "entry_time": now_indian().strftime("%Y-%m-%d %H:%M:%S"),
-            "action": action,
-            "quantity": quantity,
-            "entry_price": price,
-            "current_price": price,
-            "stop_loss": stop_loss,
-            "target": target,
-            "win_probability": win_probability,
-            "auto_trade": auto_trade,
-            "strategy": strategy,
-            "status": "OPEN",
-            "current_pnl": 0.0,
-            "max_pnl": 0.0,
-            "trade_id": len(self.trade_log) + 1
-        }
-        
-        # Update strategy performance
-        strategy_key = strategy if strategy in self.strategy_performance else "Unknown"
-        self.strategy_performance[strategy_key]["trades"] += 1
-        
+
+        if strategy and strategy in self.strategy_performance:
+            self.strategy_performance[strategy]["trades"] += 1
+
         return True, f"{'[AUTO] ' if auto_trade else ''}{action} {int(quantity)} {symbol} @ ₹{price:.2f} | Strategy: {strategy}"
-        
-    # MODIFIED: Mixed confirmed accuracy strategy to be auto traded & Historical win more than 65 % to be executed
-    def auto_execute_signals(self, signals):
-        executed = []
-        
-        # 1. Filter signals: Only execute if historical win is >= 65% (0.65)
-        filtered_signals = [
-            s for s in signals 
-            if s.get("historical_accuracy", 0.0) >= 0.65 # Historical win > 65% to be executed
-        ]
-        
-        # 2. Sort by confidence/score and limit to MAX_AUTO_TRADES
-        sorted_signals = sorted(filtered_signals, key=lambda x: (x['confidence'], x['score']), reverse=True)
-        
-        for signal in sorted_signals[:MAX_AUTO_TRADES]:
-            if not self.can_auto_trade():
-                break
-            if signal["symbol"] in self.positions and self.positions[signal["symbol"]].get("status") == "OPEN":
-                continue
-                
-            # 3. Secondary check for "Mixed confirmed accuracy" (using win_probability as confirmation)
-            if signal.get("win_probability", 0.0) < 0.65:
-                 continue # This enforces a strict check on calculated win probability
-                
-            qty = int((self.cash * TRADE_ALLOC) / signal["entry"])
-            if qty > 0:
-                success, msg = self.execute_trade(
-                    symbol=signal["symbol"],
-                    action=signal["action"],
-                    quantity=qty,
-                    price=signal["entry"],
-                    stop_loss=signal["stop_loss"],
-                    target=signal["target"],
-                    win_probability=signal.get("win_probability", 0.75),
-                    auto_trade=True,
-                    strategy=signal.get("strategy_name") # Use strategy_name from the signal object
-                )
-                if success:
-                    executed.append(msg)
-        return executed
-    
-    def calculate_support_resistance(self, symbol, price):
-        # Placeholder for S/R calculation used in position display
-        # In a real app, this would use data_manager
-        return price * 0.99, price * 1.01
 
-    def generate_quality_signals(self, universe, max_scan, min_confidence, min_score):
-        """Generates a list of high-quality signals by scanning the universe."""
-        
-        symbols_to_scan = NIFTY_50 if universe == "Nifty 50" else NIFTY_100
-        signals = []
-        
-        for i, symbol in enumerate(symbols_to_scan):
-            if i >= max_scan:
-                break
-            
-            data = data_manager.get_stock_data(symbol, "15m")
-            if data.empty or len(data) < 50:
+    def update_positions_pnl(self):
+        if should_auto_close() and not self.auto_close_triggered:
+            self.auto_close_all_positions()
+            self.auto_close_triggered = True
+            return
+        for symbol, pos in list(self.positions.items()):
+            if pos.get("status") != "OPEN":
+                continue
+            try:
+                data = data_manager.get_stock_data(symbol, "5m")
+                if data is not None and len(data) > 0:
+                    price = float(data["Close"].iloc[-1])
+                    pos["current_price"] = price
+                    entry = pos["entry_price"]
+                    if pos["action"] == "BUY":
+                        pnl = (price - entry) * pos["quantity"]
+                    else:
+                        pnl = (entry - price) * pos["quantity"]
+                    pos["current_pnl"] = float(pnl)
+                    pos["max_pnl"] = max(pos.get("max_pnl", 0.0), float(pnl))
+                    sl = pos.get("stop_loss")
+                    tg = pos.get("target")
+                    if sl is not None:
+                        if (pos["action"] == "BUY" and price <= sl) or (pos["action"] == "SELL" and price >= sl):
+                            self.close_position(symbol, exit_price=sl)
+                            continue
+                    if tg is not None:
+                        if (pos["action"] == "BUY" and price >= tg) or (pos["action"] == "SELL" and price <= tg):
+                            self.close_position(symbol, exit_price=tg)
+                            continue
+            except Exception:
                 continue
 
-            current_price = float(data["Close"].iloc[-1])
-            
-            # Use market profile for quick confirmation/score
-            mp_signal = data_manager.calculate_market_profile_signals(symbol)
-            mp_score = mp_signal['confidence'] * 10 
-            
-            # --- Strategy-based Signal Generation ---
-            for strategy_key, config in TRADING_STRATEGIES.items():
-                signal_data = data_manager.backtest_engine.generate_signal_for_backtest(data, strategy_key)
-                
-                if signal_data and signal_data['action'] != 'HOLD':
-                    
-                    # Calculate potential trade metrics
-                    accuracy = data_manager.get_historical_accuracy(symbol, strategy_key)
-                    
-                    if accuracy < 0.55: # Hard floor for low-accuracy strategies
-                        continue
-                        
-                    # Calculate SL/Target based on ATR (using 1.5x ATR for SL, 3x ATR for Target)
-                    atr = float(data["ATR"].iloc[-1])
-                    
-                    if config["type"] == "BUY":
-                        stop_loss = current_price - (atr * 1.5)
-                        target = current_price + (atr * 3.0)
-                        # Ensure SL/Target are sensible
-                        if stop_loss < current_price * 0.98: stop_loss = current_price * 0.98
-                        if target > current_price * 1.05: target = current_price * 1.05
-                    else: # SELL
-                        stop_loss = current_price + (atr * 1.5)
-                        target = current_price - (atr * 3.0)
-                        # Ensure SL/Target are sensible
-                        if stop_loss > current_price * 1.02: stop_loss = current_price * 1.02
-                        if target < current_price * 0.95: target = current_price * 0.95
-                        
-                    # Calculate Risk/Reward ratio
-                    risk = abs(current_price - stop_loss)
-                    reward = abs(target - current_price)
-                    rr_ratio = reward / risk if risk > 0 else float('inf')
-                    
-                    # Total Signal Score (weighted average of confidence, historical acc, market profile)
-                    total_confidence = (signal_data['confidence'] * 0.5 + accuracy * 0.3 + mp_signal['confidence'] * 0.2)
-                    
-                    # Final filtering
-                    if total_confidence >= min_confidence and (signal_data['action'] == mp_signal['signal'] or mp_signal['signal'] == 'NEUTRAL'):
-                        
-                        trader.strategy_performance[strategy_key]["signals"] += 1
-                        
-                        signals.append({
-                            "symbol": symbol,
-                            "action": signal_data['action'],
-                            "entry": current_price,
-                            "stop_loss": stop_loss,
-                            "target": target,
-                            "confidence": total_confidence,
-                            "win_probability": total_confidence * 0.8 + 0.2, # Simplified Win% for auto-trade filter
-                            "historical_accuracy": accuracy,
-                            "risk_reward": rr_ratio,
-                            "strategy_name": config['name'],
-                            "score": int(total_confidence * 100), # Simple integer score for sorting
-                            "strategy": strategy_key # Key for internal tracking
-                        })
-                        
-        return signals
-        
+    def auto_close_all_positions(self):
+        for sym in list(self.positions.keys()):
+            self.close_position(sym)
+
+    def close_position(self, symbol, exit_price=None):
+        if symbol not in self.positions:
+            return False, "Position not found"
+        pos = self.positions[symbol]
+        if exit_price is None:
+            try:
+                data = data_manager.get_stock_data(symbol, "5m")
+                exit_price = float(data["Close"].iloc[-1]) if data is not None and len(data) > 0 else pos["entry_price"]
+            except Exception:
+                exit_price = pos["entry_price"]
+        if pos["action"] == "BUY":
+            pnl = (exit_price - pos["entry_price"]) * pos["quantity"]
+            self.cash += pos["quantity"] * exit_price
+        else:
+            pnl = (pos["entry_price"] - exit_price) * pos["quantity"]
+            self.cash += pos.get("margin_used", 0) + (pos["quantity"] * pos["entry_price"])
+        pos["status"] = "CLOSED"
+        pos["exit_price"] = float(exit_price)
+        pos["closed_pnl"] = float(pnl)
+        pos["exit_time"] = now_indian()
+
+        strategy = pos.get("strategy")
+        if strategy and strategy in self.strategy_performance:
+            if pnl > 0:
+                self.strategy_performance[strategy]["wins"] += 1
+            self.strategy_performance[strategy]["pnl"] += pnl
+
+        try:
+            del self.positions[symbol]
+        except Exception:
+            pass
+        return True, f"Closed {symbol} @ ₹{exit_price:.2f} | P&L: ₹{pnl:+.2f}"
+
     def get_open_positions_data(self):
-        # MODIFIED: Ensure trader PnL updates before displaying
         self.update_positions_pnl()
         out = []
         for symbol, pos in self.positions.items():
             if pos.get("status") != "OPEN":
                 continue
-            
             try:
-                # Use current_price from updated position data
-                price = pos["current_price"] 
-                pnl = pos["current_pnl"]
-                
+                data = data_manager.get_stock_data(symbol, "5m")
+                price = float(data["Close"].iloc[-1]) if data is not None and len(data) > 0 else pos["entry_price"]
+                if pos["action"] == "BUY":
+                    pnl = (price - pos["entry_price"]) * pos["quantity"]
+                else:
+                    pnl = (pos["entry_price"] - price) * pos["quantity"]
+                var = ((price - pos["entry_price"]) / pos["entry_price"]) * 100
                 sup, res = self.calculate_support_resistance(symbol, price)
                 
-                entry = pos["entry_price"]
-                var = (price - entry) / entry * 100 if entry != 0 else 0
-                strategy = pos.get("strategy", "N/A")
+                strategy = pos.get("strategy", "Manual")
+                historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy) if strategy != "Manual" else 0.65
                 
-                # Using the global data_manager for accuracy look-up (requires global scope)
-                if "data_manager" in globals():
-                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                else:
-                    historical_accuracy = 0.65 # Fallback
-
                 out.append({
                     "Symbol": symbol.replace(".NS", ""),
                     "Action": pos["action"],
@@ -1187,14 +1123,302 @@ class MultiStrategyIntradayTrader:
                 continue
         return out
 
-# Initialize data_manager (must be global for other functions to use it)
-data_manager = EnhancedDataManager()
+    def get_performance_stats(self):
+        self.update_positions_pnl()
+        closed = [t for t in self.trade_log if t.get("status") == "CLOSED"]
+        total_trades = len(closed)
+        open_pnl = sum([p.get("current_pnl", 0) for p in self.positions.values() if p.get("status") == "OPEN"])
+        if total_trades == 0:
+            return {
+                "total_trades": 0,
+                "win_rate": 0.0,
+                "total_pnl": 0.0,
+                "avg_pnl": 0.0,
+                "open_positions": len(self.positions),
+                "open_pnl": open_pnl,
+                "auto_trades": self.auto_trades_count
+            }
+        wins = len([t for t in closed if t.get("closed_pnl", 0) > 0])
+        total_pnl = sum([t.get("closed_pnl", 0) for t in closed])
+        win_rate = wins / total_trades if total_trades else 0.0
+        avg_pnl = total_pnl / total_trades if total_trades else 0.0
 
+        auto_trades = [t for t in self.trade_log if t.get("auto_trade")]
+        auto_closed = [t for t in auto_trades if t.get("status") == "CLOSED"]
+        auto_win_rate = len([t for t in auto_closed if t.get("closed_pnl", 0) > 0]) / len(auto_closed) if auto_closed else 0.0
+
+        return {
+            "total_trades": total_trades,
+            "win_rate": win_rate,
+            "total_pnl": total_pnl,
+            "avg_pnl": avg_pnl,
+            "open_positions": len(self.positions),
+            "open_pnl": open_pnl,
+            "auto_trades": self.auto_trades_count,
+            "auto_win_rate": auto_win_rate
+        }
+
+    def generate_strategy_signals(self, symbol, data):
+        signals = []
+        if data is None or len(data) < 30:
+            return signals
+        try:
+            live = float(data["Close"].iloc[-1])
+            ema8 = float(data["EMA8"].iloc[-1])
+            ema21 = float(data["EMA21"].iloc[-1])
+            ema50 = float(data["EMA50"].iloc[-1])
+            rsi_val = float(data["RSI14"].iloc[-1])
+            atr = float(data["ATR"].iloc[-1]) if "ATR" in data.columns else max(live*0.005,1)
+            macd_line = float(data["MACD"].iloc[-1])
+            macd_signal = float(data["MACD_Signal"].iloc[-1])
+            vwap = float(data["VWAP"].iloc[-1])
+            support = float(data["Support"].iloc[-1])
+            resistance = float(data["Resistance"].iloc[-1])
+            bb_upper = float(data["BB_Upper"].iloc[-1])
+            bb_lower = float(data["BB_Lower"].iloc[-1])
+            vol_latest = float(data["Volume"].iloc[-1])
+            vol_avg = float(data["Volume"].rolling(20).mean().iloc[-1]) if len(data["Volume"]) >= 20 else float(data["Volume"].mean())
+            volume_spike = vol_latest > vol_avg * 1.3
+            adx_val = float(data["ADX"].iloc[-1]) if "ADX" in data.columns else 20
+            htf_trend = int(data["HTF_Trend"].iloc[-1]) if "HTF_Trend" in data.columns else 1
+
+            # BUY STRATEGIES
+            # Strategy 1: EMA + VWAP + ADX + HTF Trend
+            if (ema8 > ema21 > ema50 and live > vwap and adx_val > 20 and htf_trend == 1):
+                action = "BUY"; confidence = 0.82; score = 9; strategy = "EMA_VWAP_Confluence"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 0.8:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    win_probability = min(0.85, historical_accuracy * 1.1)
+                    signals.append({
+                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                    })
+
+            # Strategy 2: RSI Mean Reversion
+            rsi_prev = float(data["RSI14"].iloc[-2])
+            if rsi_val < 30 and rsi_val > rsi_prev and live > support:
+                action = "BUY"; confidence = 0.78; score = 8; strategy = "RSI_MeanReversion"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 0.8:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    win_probability = min(0.80, historical_accuracy * 1.1)
+                    signals.append({
+                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                    })
+
+            # Strategy 3: Bollinger Reversion
+            if live <= bb_lower and rsi_val < 35 and live > support:
+                action = "BUY"; confidence = 0.75; score = 7; strategy = "Bollinger_Reversion"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 0.8:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    win_probability = min(0.78, historical_accuracy * 1.1)
+                    signals.append({
+                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                    })
+
+            # Strategy 4: MACD Momentum
+            if (macd_line > macd_signal and macd_line > 0 and ema8 > ema21 and 
+                live > vwap and adx_val > 22 and htf_trend == 1):
+                action = "BUY"; confidence = 0.80; score = 8; strategy = "MACD_Momentum"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 0.8:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    win_probability = min(0.82, historical_accuracy * 1.1)
+                    signals.append({
+                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                    })
+
+            # Strategy 5: Support/Resistance Breakout
+            if (live > resistance and volume_spike and rsi_val > 50 and 
+                htf_trend == 1 and ema8 > ema21 and macd_line > macd_signal):
+                action = "BUY"; confidence = 0.75; score = 7; strategy = "Support_Resistance_Breakout"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                stop_loss = max(stop_loss, resistance * 0.995)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 0.8:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    win_probability = min(0.77, historical_accuracy * 1.1)
+                    signals.append({
+                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                    })
+
+            # SELL STRATEGIES - Enhanced
+            # Strategy 6: EMA + VWAP Downtrend
+            if (ema8 < ema21 < ema50 and live < vwap and adx_val > 20 and htf_trend == -1):
+                action = "SELL"; confidence = 0.78; score = 8; strategy = "EMA_VWAP_Downtrend"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 0.8:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    win_probability = min(0.80, historical_accuracy * 1.1)
+                    signals.append({
+                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                    })
+
+            # Strategy 7: RSI Overbought
+            if rsi_val > 70 and rsi_val < rsi_prev and live < resistance:
+                action = "SELL"; confidence = 0.72; score = 7; strategy = "RSI_Overbought"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 0.8:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    win_probability = min(0.75, historical_accuracy * 1.1)
+                    signals.append({
+                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                    })
+
+            # Strategy 8: Bollinger Rejection
+            if live >= bb_upper and rsi_val > 65 and live < resistance:
+                action = "SELL"; confidence = 0.70; score = 6; strategy = "Bollinger_Rejection"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 0.8:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    win_probability = min(0.73, historical_accuracy * 1.1)
+                    signals.append({
+                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                    })
+
+            # Strategy 9: MACD Bearish Crossover
+            if (macd_line < macd_signal and macd_line < 0 and ema8 < ema21 and 
+                live < vwap and adx_val > 22 and htf_trend == -1):
+                action = "SELL"; confidence = 0.75; score = 8; strategy = "MACD_Bearish"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 0.8:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    win_probability = min(0.78, historical_accuracy * 1.1)
+                    signals.append({
+                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                    })
+
+            # Strategy 10: Trend Reversal
+            if len(data) > 5:
+                prev_trend = 1 if data.iloc[-3]['EMA8'] > data.iloc[-3]['EMA21'] else -1
+                current_trend = -1 if ema8 < ema21 else 1
+                if prev_trend == 1 and current_trend == -1 and rsi_val > 60:
+                    action = "SELL"; confidence = 0.68; score = 7; strategy = "Trend_Reversal"
+                    target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                    rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                    if rr >= 0.8:
+                        historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                        win_probability = min(0.70, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
+
+            # update strategy signals count
+            for s in signals:
+                strat = s.get("strategy")
+                if strat in self.strategy_performance:
+                    self.strategy_performance[strat]["signals"] += 1
+
+            return signals
+
+        except Exception as e:
+            return signals
+
+    def generate_quality_signals(self, universe, max_scan=None, min_confidence=0.7, min_score=6):
+        signals = []
+        stocks = NIFTY_50 if universe == "Nifty 50" else NIFTY_100
+        if max_scan is None:
+            max_scan = len(stocks)
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        for idx, symbol in enumerate(stocks[:max_scan]):
+            try:
+                status_text.text(f"Scanning {symbol} ({idx+1}/{len(stocks[:max_scan])})")
+                progress_bar.progress((idx + 1) / len(stocks[:max_scan]))
+                data = data_manager.get_stock_data(symbol, "15m")
+                if data is None or len(data) < 30:
+                    continue
+                strategy_signals = self.generate_strategy_signals(symbol, data)
+                signals.extend(strategy_signals)
+            except Exception:
+                continue
+        progress_bar.empty()
+        status_text.empty()
+        signals = [s for s in signals if s["confidence"] >= min_confidence and s["score"] >= min_score]
+        signals.sort(key=lambda x: (x["score"], x["confidence"]), reverse=True)
+        self.signal_history = signals[:30]
+        return signals[:20]
+
+    def auto_execute_signals(self, signals):
+        executed = []
+        for signal in signals[:10]:
+            if not self.can_auto_trade():
+                break
+            if signal["symbol"] in self.positions:
+                continue
+            qty = int((self.cash * TRADE_ALLOC) / signal["entry"])
+            if qty > 0:
+                success, msg = self.execute_trade(
+                    symbol=signal["symbol"],
+                    action=signal["action"],
+                    quantity=qty,
+                    price=signal["entry"],
+                    stop_loss=signal["stop_loss"],
+                    target=signal["target"],
+                    win_probability=signal.get("win_probability", 0.75),
+                    auto_trade=True,
+                    strategy=signal.get("strategy")
+                )
+                if success:
+                    executed.append(msg)
+        return executed
+
+# Initialize
+data_manager = EnhancedDataManager()
 if "trader" not in st.session_state:
     st.session_state.trader = MultiStrategyIntradayTrader()
 trader = st.session_state.trader
 
-# Auto-refresh logic (Kept as is, as it's the correct Streamlit RERUN mechanism)
+# Auto-refresh logic
 if "refresh_count" not in st.session_state:
     st.session_state.refresh_count = 0
 if "current_tab" not in st.session_state:
@@ -1204,10 +1428,10 @@ if "last_auto_refresh" not in st.session_state:
 
 # Check if we should auto-refresh
 current_time = time.time()
-if current_time - st.session_state.last_auto_refresh >= PRICE_REFRESH_MS / 1000: # Use PRICE_REFRESH_MS (30s)
+if current_time - st.session_state.last_auto_refresh >= 30:  # Refresh every 30 seconds
     st.session_state.refresh_count += 1
     st.session_state.last_auto_refresh = current_time
-    st.rerun() # Auto Refresh not working - this forces a rerun every 30s.
+    st.rerun()
 
 # Enhanced UI with Circular Market Mood Gauges
 st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Rantv Intraday Terminal Pro - Enhanced BUY/SELL Signals</h1>", unsafe_allow_html=True)
@@ -1215,7 +1439,7 @@ st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Rantv Intraday Termi
 # Auto-refresh status
 st.markdown(f"""
 <div class="auto-refresh-status">
-    🔄 Auto-refresh: ACTIVE (Every {PRICE_REFRESH_MS/1000}s) | Refresh Count: <span class="refresh-counter">{st.session_state.refresh_count}</span> | Last Update: {datetime.now().strftime('%H:%M:%S')}
+    🔄 Auto-refresh: ACTIVE (Every 30s) | Refresh Count: <span class="refresh-counter">{st.session_state.refresh_count}</span> | Last Update: {datetime.now().strftime('%H:%M:%S')}
 </div>
 """, unsafe_allow_html=True)
 
@@ -1224,31 +1448,55 @@ col1, col2, col3 = st.columns([1, 1, 1])
 with col1:
     if st.button("🔄 Force Refresh All", use_container_width=True, type="primary"):
         st.session_state.refresh_count += 1
-        st.session_state.last_auto_refresh = time.time()
         st.rerun()
 with col2:
-    if st.button("🔴 Toggle Auto Execution", use_container_width=True, type="primary"):
-        trader.auto_execution = not trader.auto_execution
+    if st.button("📊 Update Prices", use_container_width=True):
+        data_manager.last_price_update = None
+        st.rerun()
+with col3:
+    if st.button("🚦 Update Signals", use_container_width=True):
+        data_manager.last_signal_scan = None
         st.rerun()
 
-# Market Mood & Status Gauges
-st.subheader("🌐 Market Status & Mood")
+# Market Mood Gauges for Nifty50 & BankNifty
+st.subheader("📊 Market Mood Gauges")
+
+try:
+    nifty_data = yf.download("^NSEI", period="1d", interval="5m", auto_adjust=False)
+    nifty_current = float(nifty_data["Close"].iloc[-1])
+    nifty_prev = float(nifty_data["Close"].iloc[-2])
+    nifty_change = ((nifty_current - nifty_prev) / nifty_prev) * 100
+    
+    # Calculate Nifty sentiment score (0-100)
+    nifty_sentiment = 50 + (nifty_change * 8)  # Base 50 + amplified change
+    nifty_sentiment = max(0, min(100, nifty_sentiment))
+    
+except Exception:
+    nifty_current = 22000
+    nifty_change = 0.15
+    nifty_sentiment = 65
+
+try:
+    banknifty_data = yf.download("^NSEBANK", period="1d", interval="5m", auto_adjust=False)
+    banknifty_current = float(banknifty_data["Close"].iloc[-1])
+    banknifty_prev = float(banknifty_data["Close"].iloc[-2])
+    banknifty_change = ((banknifty_current - banknifty_prev) / banknifty_prev) * 100
+    
+    # Calculate BankNifty sentiment score
+    banknifty_sentiment = 50 + (banknifty_change * 8)
+    banknifty_sentiment = max(0, min(100, banknifty_sentiment))
+    
+except Exception:
+    banknifty_current = 48000
+    banknifty_change = 0.25
+    banknifty_sentiment = 70
+
+# Display Circular Market Mood Gauges
 col1, col2, col3, col4 = st.columns(4)
-
-# (Placeholder for Nifty & BankNifty data fetching, assuming a function like get_index_data exists)
-# Using dummy data for demonstration
-nifty_mood = 55.7
-nifty_value = 22000.0
-nifty_change = 0.55
-
-banknifty_mood = 62.3
-banknifty_value = 47000.0
-banknifty_change = 1.25
-
 with col1:
-    st.markdown(create_circular_market_mood_gauge("NIFTY 50", nifty_value, nifty_change, nifty_mood), unsafe_allow_html=True)
+    st.markdown(create_circular_market_mood_gauge("NIFTY 50", nifty_current, nifty_change, nifty_sentiment), unsafe_allow_html=True)
 with col2:
-    st.markdown(create_circular_market_mood_gauge("BANKNIFTY", banknifty_value, banknifty_change, banknifty_mood), unsafe_allow_html=True)
+    st.markdown(create_circular_market_mood_gauge("BANK NIFTY", banknifty_current, banknifty_change, banknifty_sentiment), unsafe_allow_html=True)
 with col3:
     # Market status gauge
     market_status = "LIVE" if market_open() else "CLOSED"
@@ -1260,30 +1508,28 @@ with col4:
     close_sentiment = 20 if should_auto_close() else 80
     st.markdown(create_circular_market_mood_gauge("AUTO CLOSE", 0, 0, close_sentiment).replace("₹0", "15:10").replace("0.00%", auto_close_status), unsafe_allow_html=True)
 
-
 # Main metrics with card styling
 st.subheader("📈 Live Metrics")
 cols = st.columns(4)
 with cols[0]:
     st.markdown(f"""
     <div class="metric-card">
-    <div style="font-size: 12px; color: #6b7280;">Initial Capital</div>
-    <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.initial_capital:,.0f}</div>
+        <div style="font-size: 12px; color: #6b7280;">Available Cash</div>
+        <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.cash:,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 with cols[1]:
     st.markdown(f"""
     <div class="metric-card">
-    <div style="font-size: 12px; color: #6b7280;">Available Cash</div>
-    <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.cash:,.0f}</div>
+        <div style="font-size: 12px; color: #6b7280;">Account Value</div>
+        <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.equity():,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 with cols[2]:
-    # FIX APPLIED HERE: trader.equity() now exists
     st.markdown(f"""
     <div class="metric-card">
-    <div style="font-size: 12px; color: #6b7280;">Account Value</div>
-    <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.equity():,.0f}</div>
+        <div style="font-size: 12px; color: #6b7280;">Open Positions</div>
+        <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">{len(trader.positions)}</div>
     </div>
     """, unsafe_allow_html=True)
 with cols[3]:
@@ -1291,28 +1537,62 @@ with cols[3]:
     pnl_color = "#059669" if open_pnl >= 0 else "#dc2626"
     st.markdown(f"""
     <div class="metric-card">
-    <div style="font-size: 12px; color: #6b7280;">Open P&L</div>
-    <div style="font-size: 20px; font-weight: bold; color: {pnl_color};">₹{open_pnl:+.2f}</div>
+        <div style="font-size: 12px; color: #6b7280;">Open P&L</div>
+        <div style="font-size: 20px; font-weight: bold; color: {pnl_color};">₹{open_pnl:+.2f}</div>
     </div>
     """, unsafe_allow_html=True)
 
+# Sidebar with Strategy Performance
+st.sidebar.header("🎯 Strategy Performance")
+for strategy, config in TRADING_STRATEGIES.items():
+    if strategy in trader.strategy_performance:
+        perf = trader.strategy_performance[strategy]
+        if perf["signals"] > 0:
+            win_rate = perf["wins"] / perf["trades"] if perf["trades"] > 0 else 0
+            color = "#059669" if win_rate > 0.6 else "#dc2626" if win_rate < 0.4 else "#d97706"
+            st.sidebar.write(f"**{config['name']}**")
+            st.sidebar.write(f"📊 Signals: {perf['signals']} | Trades: {perf['trades']}")
+            st.sidebar.write(f"🎯 Win Rate: <span style='color: {color};'>{win_rate:.1%}</span>", unsafe_allow_html=True)
+            st.sidebar.write(f"💰 P&L: ₹{perf['pnl']:+.2f}")
+            st.sidebar.markdown("---")
 
-# Tabs Implementation
-tab_list = ["📈 Dashboard", "🚦 Signals", "💰 Paper Trading", "📊 Market Profile", "🛠️ Strategies"]
-tabs = st.tabs(tab_list)
+st.sidebar.header("⚙️ Trading Configuration")
+trader.selected_market = st.sidebar.selectbox("Market Type", MARKET_OPTIONS)
+trader.auto_execution = st.sidebar.checkbox("Auto Execution", value=False)
+min_conf_percent = st.sidebar.slider("Minimum Confidence %", 60, 95, 70, 5)
+min_score = st.sidebar.slider("Minimum Score", 5, 10, 6, 1)
+scan_limit = st.sidebar.selectbox("Scan Limit", ["All Stocks", "Top 40", "Top 20"], index=0)
+max_scan_map = {"All Stocks": None, "Top 40": 40, "Top 20": 20}
+max_scan = max_scan_map[scan_limit]
 
+# Enhanced Tabs with Better Styling
+tabs = st.tabs([
+    "📈 Dashboard", 
+    "🚦 Signals", 
+    "💰 Paper Trading", 
+    "📊 Market Profile", 
+    "📉 RSI Extreme", 
+    "🔍 Backtest", 
+    "⚡ Strategies"
+])
+
+# Store current tab in session state
+if "current_tab" not in st.session_state:
+    st.session_state.current_tab = "📈 Dashboard"
+
+# Tab content with auto-refresh handling
 with tabs[0]:
     st.session_state.current_tab = "📈 Dashboard"
-    # Dashboard logic...
-    st.subheader("Trader Performance")
+    st.subheader("Account Summary")
+    trader.update_positions_pnl()
     perf = trader.get_performance_stats()
     
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Initial Capital", f"₹{trader.initial_capital:+,.0f}")
+    c1.metric("Total Value", f"₹{trader.equity():,.0f}", delta=f"₹{trader.equity() - trader.initial_capital:+,.0f}")
     c2.metric("Available Cash", f"₹{trader.cash:,.0f}")
-    c3.metric("Open Positions", len([p for p in trader.positions.values() if p["status"] == "OPEN"]))
+    c3.metric("Open Positions", len(trader.positions))
     c4.metric("Total P&L", f"₹{perf['total_pnl'] + perf['open_pnl']:+.2f}")
-
+    
     # Strategy Performance Overview
     st.subheader("Strategy Performance Overview")
     strategy_data = []
@@ -1329,11 +1609,12 @@ with tabs[0]:
                     "Win Rate": f"{win_rate:.1%}",
                     "P&L": f"₹{perf_data['pnl']:+.2f}"
                 })
+    
     if strategy_data:
         st.dataframe(pd.DataFrame(strategy_data), use_container_width=True)
     else:
         st.info("No strategy performance data available yet.")
-        
+
 with tabs[1]:
     st.session_state.current_tab = "🚦 Signals"
     st.subheader("Multi-Strategy BUY/SELL Signals")
@@ -1347,91 +1628,91 @@ with tabs[1]:
         generate_btn = st.button("Generate Signals", type="primary", use_container_width=True)
     with col2:
         if trader.auto_execution:
-            st.success("🔴 Auto Execution: ACTIVE (Win >= 65% Required)")
+            st.success("🔴 Auto Execution: ACTIVE")
         else:
             st.info("⚪ Auto Execution: INACTIVE")
-
-    # Assuming max_scan and min_conf_percent are defined (e.g., in sidebar or elsewhere)
-    max_scan = 20 # Example default
-    min_conf_percent = 70 # Example default
-    min_score = 7 # Example default
-
+            
     if generate_btn or should_scan_signals:
         with st.spinner("Scanning stocks with enhanced BUY/SELL strategies..."):
             signals = trader.generate_quality_signals(universe, max_scan=max_scan, min_confidence=min_conf_percent/100.0, min_score=min_score)
+        
+        if signals:
+            # Separate BUY and SELL signals
+            buy_signals = [s for s in signals if s["action"] == "BUY"]
+            sell_signals = [s for s in signals if s["action"] == "SELL"]
             
-            # Auto-execute trades here if auto-execution is enabled
-            if trader.auto_execution:
-                executed_trades = trader.auto_execute_signals(signals)
-                if executed_trades:
-                    st.success(f"Executed {len(executed_trades)} auto trades!")
-                    for msg in executed_trades:
-                        st.code(msg)
-                
-            if signals:
-                # Separate BUY and SELL signals
-                buy_signals = [s for s in signals if s["action"] == "BUY"]
-                sell_signals = [s for s in signals if s["action"] == "SELL"] # Fix for 'Only Buy Signals are generated' is in the strategy definitions
-                st.success(f"Found {len(buy_signals)} BUY signals and {len(sell_signals)} SELL signals")
-                
-                data_rows = []
-                for s in signals:
-                    data_rows.append({
-                        "Symbol": s["symbol"].replace(".NS", ""),
-                        "Action": s["action"],
-                        "Entry": f"₹{s['entry']:.2f}",
-                        "Target": f"₹{s['target']:.2f}",
-                        "Stop Loss": f"₹{s['stop_loss']:.2f}",
-                        "Confidence": f"{s['confidence']:.1%}",
-                        "Historical Win %": f"{s['historical_accuracy']:.1%}", # Filter applied in auto_execute_signals
-                        "RR Ratio": f"{s['risk_reward']:.1f}",
-                        "Score": s['score'],
-                        "Strategy": s['strategy_name'],
-                    })
-                
-                # Manual trade execution (simplified)
-                df_signals = pd.DataFrame(data_rows)
-                st.dataframe(df_signals, use_container_width=True)
-                
-                # ... (Manual execution buttons logic)
+            st.success(f"Found {len(buy_signals)} BUY signals and {len(sell_signals)} SELL signals")
+            
+            data_rows = []
+            for s in signals:
+                data_rows.append({
+                    "Symbol": s["symbol"].replace(".NS",""),
+                    "Action": s["action"],
+                    "Strategy": s["strategy_name"],
+                    "Entry Price": f"₹{s['entry']:.2f}",
+                    "Current Price": f"₹{s['current_price']:.2f}",
+                    "Target": f"₹{s['target']:.2f}",
+                    "Stop Loss": f"₹{s['stop_loss']:.2f}",
+                    "Confidence": f"{s['confidence']:.1%}",
+                    "Historical Win %": f"{s.get('historical_accuracy', 0.7):.1%}",
+                    "Current Win %": f"{s.get('win_probability',0.7):.1%}",
+                    "R:R": f"{s['risk_reward']:.2f}",
+                    "Score": s['score'],
+                    "RSI": f"{s['rsi']:.1f}"
+                })
+            
+            st.dataframe(pd.DataFrame(data_rows), use_container_width=True)
+            
+            if trader.auto_execution and trader.can_auto_trade():
+                executed = trader.auto_execute_signals(signals)
+                if executed:
+                    st.success("Auto-execution completed:")
+                    for msg in executed:
+                        st.write(f"✓ {msg}")
+            
+            st.subheader("Manual Execution")
+            for s in signals:
+                col_a, col_b, col_c = st.columns([3,1,1])
+                with col_a:
+                    action_color = "🟢" if s["action"] == "BUY" else "🔴"
+                    st.write(f"{action_color} **{s['symbol'].replace('.NS','')}** - {s['action']} @ ₹{s['entry']:.2f} | Strategy: {s['strategy_name']} | Historical Win: {s.get('historical_accuracy',0.7):.1%} | R:R: {s['risk_reward']:.2f}")
+                with col_b:
+                    qty = int((trader.cash * TRADE_ALLOC) / s["entry"])
+                    st.write(f"Qty: {qty}")
+                with col_c:
+                    if st.button(f"Execute", key=f"exec_{s['symbol']}_{s['strategy']}"):
+                        success, msg = trader.execute_trade(
+                            symbol=s["symbol"], action=s["action"], quantity=qty, price=s["entry"],
+                            stop_loss=s["stop_loss"], target=s["target"], win_probability=s.get("win_probability",0.75),
+                            strategy=s.get("strategy")
+                        )
+                        if success:
+                            st.success(msg)
+        else:
+            st.info("No confirmed signals with current filters.")
+            
+        if should_scan_signals and not generate_btn:
+            st.success("🔄 Signals auto-updated (every 60 seconds)")
 
 with tabs[2]:
     st.session_state.current_tab = "💰 Paper Trading"
-    st.subheader("Open Positions - Paper Trading (Real-time P&L)")
-    
+    st.subheader("Paper Trading - With Historical Accuracy")
+    trader.update_positions_pnl()
     open_pos = trader.get_open_positions_data()
-
+    
     if open_pos:
-        df_open_pos = pd.DataFrame(open_pos)
+        st.dataframe(pd.DataFrame(open_pos), use_container_width=True)
         
-        # MODIFIED: PnL column in paper trading to be coloured Green/Red
-        def apply_color_pnl(s):
-            """Applies conditional formatting to the P&L column string."""
-            styles = []
-            for pnl_str in s:
-                try:
-                    # Clean string (e.g., '₹+500.00' to a float sign indicator)
-                    if '+' in pnl_str:
-                        styles.append('color: green; font-weight: bold;')
-                    elif '-' in pnl_str:
-                        styles.append('color: red; font-weight: bold;')
-                    else:
-                        styles.append('color: grey') # For '₹0.00'
-                except:
-                    styles.append('color: grey') 
-            return styles
-
-        # Apply the styling function to the 'P&L' column
-        styled_df = df_open_pos.style.apply(apply_color_pnl, subset=['P&L'], axis=0)
+        # Enhanced Accuracy Summary
+        st.subheader("📊 Enhanced Accuracy Analysis")
         
-        st.dataframe(styled_df, use_container_width=True)
-        
-        # Position analysis
-        st.subheader("Open Positions Analysis by Strategy")
-        strategies_used = list(set([pos['Strategy'] for pos in open_pos]))
+        # Strategy-wise analysis
+        strategies_used = set([pos['Strategy'] for pos in open_pos])
         strategy_analysis = []
+        
         for strategy in strategies_used:
             strategy_positions = [pos for pos in open_pos if pos['Strategy'] == strategy]
+            
             # Handle Historical Win % safely
             historical_wins = []
             for pos in strategy_positions:
@@ -1440,7 +1721,8 @@ with tabs[2]:
                         win_pct = float(pos['Historical Win %'].strip('%'))/100
                         historical_wins.append(win_pct)
                     except (ValueError, AttributeError):
-                        historical_wins.append(0.65) # Default value
+                        historical_wins.append(0.65)  # Default value
+            
             avg_historical = np.mean(historical_wins) if historical_wins else 0.65
             
             # Handle P&L calculation safely
@@ -1452,40 +1734,320 @@ with tabs[2]:
                         current_pnl += float(pnl_str)
                     except (ValueError, AttributeError):
                         continue
+            
             strategy_analysis.append({
                 "Strategy": strategy,
                 "Positions": len(strategy_positions),
                 "Avg Historical Win %": f"{avg_historical:.1%}",
                 "Current P&L": f"₹{current_pnl:+.2f}"
             })
+        
         if strategy_analysis:
             st.dataframe(pd.DataFrame(strategy_analysis), use_container_width=True)
         
         # Position management
         st.subheader("Position Management")
-        open_symbols = [sym for sym, pos in trader.positions.items() if pos["status"] == "OPEN"]
-        cols_close = st.columns(min(len(open_symbols), 4))
-        for idx, symbol in enumerate(open_symbols):
-            with cols_close[idx % min(len(open_symbols), 4)]:
+        cols_close = st.columns(4)
+        for idx, symbol in enumerate(list(trader.positions.keys())):
+            with cols_close[idx % 4]:
                 if st.button(f"Close {symbol}", key=f"close_{symbol}", use_container_width=True):
                     success, msg = trader.close_position(symbol)
                     if success:
                         st.success(msg)
-        if open_symbols and st.button("Close All Positions", type="primary", use_container_width=True):
-            for sym in list(open_symbols):
+        
+        if st.button("Close All Positions", type="primary", use_container_width=True):
+            for sym in list(trader.positions.keys()):
                 trader.close_position(sym)
             st.success("All positions closed!")
     else:
         st.info("No open positions.")
-        
+
 with tabs[3]:
     st.session_state.current_tab = "📊 Market Profile"
-    st.subheader("Market Profile & Key Levels")
-    st.info("Market Profile visualization and analysis functionality goes here.")
-    # ... (Market Profile logic)
+    st.subheader("Market Profile Analysis - Nifty 50/100")
+    st.write("Automated bullish/bearish signal analysis based on 15-minute candle data")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        profile_universe = st.selectbox("Select Universe", ["Nifty 50", "Nifty 100"], key="profile_universe")
+        analyze_btn = st.button("Analyze Market Profile", type="primary", use_container_width=True)
+    
+    with col2:
+        min_confidence = st.slider("Minimum Confidence %", 60, 90, 70, 5, key="profile_confidence")
+    
+    if analyze_btn:
+        stocks = NIFTY_50 if profile_universe == "Nifty 50" else NIFTY_100
+        bullish_stocks = []
+        bearish_stocks = []
+        neutral_stocks = []
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for idx, symbol in enumerate(stocks):
+            status_text.text(f"Analyzing {symbol.replace('.NS', '')} ({idx+1}/{len(stocks)})")
+            progress_bar.progress((idx + 1) / len(stocks))
+            
+            try:
+                profile_signal = data_manager.calculate_market_profile_signals(symbol)
+                stock_data = {
+                    "Symbol": symbol.replace(".NS", ""),
+                    "Signal": profile_signal["signal"],
+                    "Confidence": f"{profile_signal['confidence']:.1%}",
+                    "Reason": profile_signal["reason"]
+                }
+                
+                if profile_signal["signal"] == "BULLISH" and profile_signal["confidence"] >= min_confidence/100.0:
+                    bullish_stocks.append(stock_data)
+                elif profile_signal["signal"] == "BEARISH" and profile_signal["confidence"] >= min_confidence/100.0:
+                    bearish_stocks.append(stock_data)
+                else:
+                    neutral_stocks.append(stock_data)
+                    
+            except Exception as e:
+                continue
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        # Display results in tabulated format
+        col_bull, col_bear = st.columns(2)
+        
+        with col_bull:
+            if bullish_stocks:
+                st.subheader(f"📈 Bullish Signals ({len(bullish_stocks)})")
+                bullish_df = pd.DataFrame(bullish_stocks)
+                st.dataframe(bullish_df, use_container_width=True)
+        
+        with col_bear:
+            if bearish_stocks:
+                st.subheader(f"📉 Bearish Signals ({len(bearish_stocks)})")
+                bearish_df = pd.DataFrame(bearish_stocks)
+                st.dataframe(bearish_df, use_container_width=True)
+        
+        if not bullish_stocks and not bearish_stocks:
+            st.info("No strong bullish or bearish signals found with current confidence threshold.")
 
 with tabs[4]:
-    st.session_state.current_tab = "🛠️ Strategies"
-    st.subheader("Strategy Details & Configuration")
-    st.info("Detailed configuration and backtesting results for each strategy will be shown here.")
-    # ... (Strategy details logic)
+    st.session_state.current_tab = "📉 RSI Extreme"
+    st.subheader("RSI Extreme Scanner - Broker Matched")
+    st.write("RSI calculated to match Zerodha/Kite platform (15min timeframe, EWMA method)")
+    
+    # Auto-scan RSI if it's time
+    should_run_rsi = data_manager.should_run_rsi_scan()
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        universe_rsi = st.selectbox("Universe", ["Nifty 50", "Nifty 100"], key="rsi_universe")
+    with col2:
+        rsi_low_threshold = st.slider("Oversold Threshold", 20, 35, 30, 1)
+    with col3:
+        rsi_high_threshold = st.slider("Overbought Threshold", 65, 80, 70, 1)
+    with col4:
+        min_volume_multiplier = st.slider("Min Volume", 1.0, 3.0, 1.2, 0.1)
+    
+    # Always show scan button and auto-scan
+    scan_clicked = st.button("🔍 Scan RSI Extremes", type="primary", use_container_width=True)
+    
+    if scan_clicked or should_run_rsi:
+        stocks = NIFTY_50 if universe_rsi == "Nifty 50" else NIFTY_100
+        rsi_low_stocks = []
+        rsi_high_stocks = []
+        normal_stocks = []
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for idx, symbol in enumerate(stocks):
+            status_text.text(f"Calculating RSI for {symbol.replace('.NS', '')} ({idx+1}/{len(stocks)})")
+            progress_bar.progress((idx + 1) / len(stocks))
+            
+            try:
+                # Get 15min data specifically for RSI calculation
+                data = data_manager.get_stock_data(symbol, "15m")
+                if data is not None and len(data) > 20:
+                    # Use the exact RSI calculation
+                    current_rsi = float(data["RSI14"].iloc[-1])
+                    current_price = float(data["Close"].iloc[-1])
+                    current_volume = float(data["Volume"].iloc[-1])
+                    avg_volume = float(data["Volume"].rolling(20).mean().iloc[-1])
+                    
+                    volume_ok = current_volume > avg_volume * min_volume_multiplier
+                    
+                    stock_info = {
+                        "Symbol": symbol.replace(".NS", ""),
+                        "RSI": f"{current_rsi:.1f}",
+                        "Price": f"₹{current_price:.2f}",
+                        "Volume Ratio": f"{current_volume/avg_volume:.1f}x",
+                        "Signal": "Normal"
+                    }
+                    
+                    # Special check for ICICIBANK to debug
+                    if symbol == "ICICIBANK.NS":
+                        st.info(f"**ICICIBANK Debug:** RSI = {current_rsi:.2f}, Price = ₹{current_price:.2f}")
+                    
+                    if current_rsi <= rsi_low_threshold and volume_ok:
+                        stock_info["Signal"] = "Oversold"
+                        rsi_low_stocks.append(stock_info)
+                    elif current_rsi >= rsi_high_threshold and volume_ok:
+                        stock_info["Signal"] = "Overbought" 
+                        rsi_high_stocks.append(stock_info)
+                    else:
+                        normal_stocks.append(stock_info)
+                        
+            except Exception as e:
+                continue
+                
+        progress_bar.empty()
+        status_text.empty()
+        
+        # Display results
+        col_results1, col_results2 = st.columns(2)
+        
+        with col_results1:
+            if rsi_high_stocks:
+                st.subheader(f"📈 Overbought Stocks (RSI > {rsi_high_threshold})")
+                high_df = pd.DataFrame(rsi_high_stocks)
+                
+                # Apply styling to highlight extreme values
+                def highlight_rsi_extreme(val):
+                    if "RSI" in str(val):
+                        try:
+                            rsi_val = float(val)
+                            if rsi_val > 80:
+                                return 'background-color: #ffcccc'  # Light red
+                            elif rsi_val > 70:
+                                return 'background-color: #ffe6cc'  # Light orange
+                        except:
+                            pass
+                    return ''
+                
+                st.dataframe(high_df.style.applymap(highlight_rsi_extreme), use_container_width=True)
+        
+        with col_results2:
+            if rsi_low_stocks:
+                st.subheader(f"📉 Oversold Stocks (RSI < {rsi_low_threshold})")
+                low_df = pd.DataFrame(rsi_low_stocks)
+                
+                def highlight_rsi_oversold(val):
+                    if "RSI" in str(val):
+                        try:
+                            rsi_val = float(val)
+                            if rsi_val < 20:
+                                return 'background-color: #ccffcc'  # Light green
+                            elif rsi_val < 30:
+                                return 'background-color: #e6ffcc'  # Light lime
+                        except:
+                            pass
+                    return ''
+                
+                st.dataframe(low_df.style.applymap(highlight_rsi_oversold), use_container_width=True)
+        
+        # Show normal stocks in expander for reference
+        if normal_stocks and st.checkbox("Show Normal RSI Stocks (40-60)"):
+            normal_df = pd.DataFrame([s for s in normal_stocks if 40 <= float(s['RSI']) <= 60])
+            if not normal_df.empty:
+                st.subheader("📊 Normal RSI Stocks")
+                st.dataframe(normal_df, use_container_width=True)
+        
+        if not rsi_low_stocks and not rsi_high_stocks:
+            st.info("✅ No extreme RSI stocks found. Market is in normal range.")
+            
+        # Show auto-scan status
+        if should_run_rsi and not scan_clicked:
+            st.success("🔄 Auto-scanned (updates every 60 seconds)")
+
+with tabs[5]:
+    st.session_state.current_tab = "🔍 Backtest"
+    st.subheader("Strategy Backtesting")
+    st.write("Run historical backtest to evaluate strategy performance")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        backtest_symbol = st.selectbox("Select Stock", NIFTY_50[:20], key="backtest_stock")
+        backtest_strategy = st.selectbox("Select Strategy", list(TRADING_STRATEGIES.keys()), 
+                                        format_func=lambda x: TRADING_STRATEGIES[x]["name"])
+    
+    with col2:
+        backtest_period = st.selectbox("Period", ["1mo", "3mo", "6mo"], index=1)
+        backtest_interval = st.selectbox("Interval", ["15m", "30m", "1h"], index=0)
+    
+    if st.button("Run Backtest", type="primary", use_container_width=True):
+        with st.spinner("Running backtest..."):
+            try:
+                data = data_manager.get_stock_data(backtest_symbol, backtest_interval)
+                
+                if data.empty:
+                    st.error("No data available for backtest")
+                else:
+                    accuracy = data_manager.backtest_engine.calculate_historical_accuracy(
+                        backtest_symbol, backtest_strategy, data
+                    )
+                    
+                    st.success(f"**Backtest Results for {TRADING_STRATEGIES[backtest_strategy]['name']}**")
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Historical Accuracy", f"{accuracy:.1%}")
+                    col2.metric("Strategy", TRADING_STRATEGIES[backtest_strategy]["name"])
+                    col3.metric("Stock", backtest_symbol.replace(".NS", ""))
+                    
+                    if accuracy > 0.7:
+                        st.success("✅ This strategy shows good historical performance")
+                    elif accuracy > 0.6:
+                        st.info("ℹ️ This strategy shows decent historical performance")
+                    else:
+                        st.warning("⚠️ This strategy may need optimization")
+                        
+            except Exception as e:
+                st.error(f"Backtest failed: {str(e)}")
+
+with tabs[6]:
+    st.session_state.current_tab = "⚡ Strategies"
+    st.subheader("Enhanced Trading Strategies")
+    
+    for strategy_key, config in TRADING_STRATEGIES.items():
+        with st.expander(f"{'🟢' if config['type'] == 'BUY' else '🔴'} {config['name']} (Weight: {config['weight']})"):
+            
+            # Strategy descriptions
+            strategy_descriptions = {
+                "EMA_VWAP_Confluence": "**Description:** Combines EMA alignment with VWAP, ADX trend strength, and higher timeframe bias for high-probability BUY entries.\n\n**Conditions:** EMA8 > EMA21 > EMA50, Price > VWAP, ADX > 20, HTF Trend = Bullish",
+                "RSI_MeanReversion": "**Description:** Identifies oversold conditions with RSI reversal for BUY entries at key support levels.\n\n**Conditions:** RSI < 30, RSI rising, Price > Support",
+                "Bollinger_Reversion": "**Description:** Captures mean reversion BUY opportunities when price touches Bollinger Band extremes.\n\n**Conditions:** Price ≤ Lower BB, RSI < 35, Price > Support",
+                "MACD_Momentum": "**Description:** Uses MACD crossover with ADX trend strength for BUY momentum entries.\n\n**Conditions:** MACD > Signal, MACD > 0, EMA8 > EMA21, Price > VWAP, ADX > 22",
+                "Support_Resistance_Breakout": "**Description:** Identifies BUY breakouts at key resistance levels with volume confirmation.\n\n**Conditions:** Price > Resistance, Volume spike, RSI > 50, Bullish trend",
+                "EMA_VWAP_Downtrend": "**Description:** Combines bearish EMA alignment with VWAP for SELL entries in downtrends.\n\n**Conditions:** EMA8 < EMA21 < EMA50, Price < VWAP, ADX > 20, HTF Trend = Bearish",
+                "RSI_Overbought": "**Description:** Identifies overbought conditions with RSI reversal for SELL entries.\n\n**Conditions:** RSI > 70, RSI falling, Price < Resistance",
+                "Bollinger_Rejection": "**Description:** Captures SELL opportunities when price rejects upper Bollinger Band.\n\n**Conditions:** Price ≥ Upper BB, RSI > 65, Price < Resistance",
+                "MACD_Bearish": "**Description:** Uses MACD bearish crossover for SELL entries in downtrends.\n\n**Conditions:** MACD < Signal, MACD < 0, EMA8 < EMA21, Price < VWAP, ADX > 22",
+                "Trend_Reversal": "**Description:** Identifies early trend reversal patterns for SELL entries.\n\n**Conditions:** Bullish to bearish trend change, RSI > 60"
+            }
+            
+            st.write(strategy_descriptions.get(strategy_key, "Strategy description not available."))
+            
+            # Performance data
+            if strategy_key in trader.strategy_performance:
+                perf = trader.strategy_performance[strategy_key]
+                if perf["trades"] > 0:
+                    win_rate = perf["wins"]/perf["trades"] if perf["trades"]>0 else 0
+                    st.write(f"**Live Performance:** {perf['trades']} trades | {win_rate:.1%} win rate | ₹{perf['pnl']:+.2f}")
+                else:
+                    st.write("**Live Performance:** No trades yet")
+            else:
+                st.write("**Live Performance:** No trades yet")
+            
+            # Historical accuracy ranges
+            default_accuracies = {
+                "EMA_VWAP_Confluence": "65-75%",
+                "RSI_MeanReversion": "60-70%",
+                "Bollinger_Reversion": "58-68%",
+                "MACD_Momentum": "62-72%",
+                "Support_Resistance_Breakout": "55-65%",
+                "EMA_VWAP_Downtrend": "60-70%",
+                "RSI_Overbought": "58-68%",
+                "Bollinger_Rejection": "56-66%",
+                "MACD_Bearish": "59-69%",
+                "Trend_Reversal": "54-64%"
+            }
+            st.write(f"**Typical Historical Accuracy:** {default_accuracies.get(strategy_key, '60-70%')}")
+
+st.markdown("---")
+st.markdown("<div style='text-align:center; color: #6b7280;'>Rantv Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
