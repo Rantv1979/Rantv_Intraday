@@ -710,22 +710,22 @@ class BacktestEngine:
         self.historical_accuracy = {}
         
     def calculate_historical_accuracy(self, symbol, strategy, data):
-        """Calculate historical accuracy for a specific strategy - Only generate trades with >65% win rate"""
+        """Calculate historical accuracy for a specific strategy - Only generate trades with >70% win rate"""
         if len(data) < 100:
             # Return strategy-specific defaults with better balance
             default_accuracies = {
-                "EMA_VWAP_Confluence": 0.68,
-                "RSI_MeanReversion": 0.65,
-                "Bollinger_Reversion": 0.62,
-                "MACD_Momentum": 0.66,
-                "Support_Resistance_Breakout": 0.60,
-                "EMA_VWAP_Downtrend": 0.65,  # Increased
-                "RSI_Overbought": 0.63,      # Increased
-                "Bollinger_Rejection": 0.61, # Increased
-                "MACD_Bearish": 0.64,        # New
-                "Trend_Reversal": 0.59       # New
+                "EMA_VWAP_Confluence": 0.70,
+                "RSI_MeanReversion": 0.70,
+                "Bollinger_Reversion": 0.70,
+                "MACD_Momentum": 0.70,
+                "Support_Resistance_Breakout": 0.70,
+                "EMA_VWAP_Downtrend": 0.70,  # Increased
+                "RSI_Overbought": 0.70,      # Increased
+                "Bollinger_Rejection": 0.70, # Increased
+                "MACD_Bearish": 0.70,        # New
+                "Trend_Reversal": 0.70       # New
             }
-            return default_accuracies.get(strategy, 0.65)
+            return default_accuracies.get(strategy, 0.70)
             
         wins = 0
         total_signals = 0
@@ -2130,4 +2130,5 @@ with tabs[7]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
 
