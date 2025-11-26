@@ -710,22 +710,22 @@ class BacktestEngine:
         self.historical_accuracy = {}
         
     def calculate_historical_accuracy(self, symbol, strategy, data):
-        """Calculate historical accuracy for a specific strategy - Only generate trades with >68% win rate"""
+        """Calculate historical accuracy for a specific strategy - Only generate trades with >65% win rate"""
         if len(data) < 100:
             # Return strategy-specific defaults with better balance
             default_accuracies = {
-                "EMA_VWAP_Confluence": 0.70,
-                "RSI_MeanReversion": 0.70,
-                "Bollinger_Reversion": 0.70,
-                "MACD_Momentum": 0.70,
-                "Support_Resistance_Breakout": 0.70,
-                "EMA_VWAP_Downtrend": 0.70,  # Increased
-                "RSI_Overbought": 0.70,      # Increased
-                "Bollinger_Rejection": 0.70, # Increased
-                "MACD_Bearish": 0.70,        # New
-                "Trend_Reversal": 0.70       # New
+                "EMA_VWAP_Confluence": 0.68,
+                "RSI_MeanReversion": 0.65,
+                "Bollinger_Reversion": 0.62,
+                "MACD_Momentum": 0.66,
+                "Support_Resistance_Breakout": 0.60,
+                "EMA_VWAP_Downtrend": 0.65,  # Increased
+                "RSI_Overbought": 0.63,      # Increased
+                "Bollinger_Rejection": 0.61, # Increased
+                "MACD_Bearish": 0.64,        # New
+                "Trend_Reversal": 0.59       # New
             }
-            return default_accuracies.get(strategy, 0.70)
+            return default_accuracies.get(strategy, 0.65)
             
         wins = 0
         total_signals = 0
@@ -770,9 +770,9 @@ class BacktestEngine:
         else:
             accuracy = wins / total_signals
         
-        # Filter: Only return strategies with >68% historical accuracy
-        if accuracy >= 0.70:
-            return max(0.70, min(0.85, accuracy))
+        # Filter: Only return strategies with >65% historical accuracy
+        if accuracy >= 0.65:
+            return max(0.65, min(0.85, accuracy))
         else:
             return 0.0  # Don't generate trades for strategies with <65% accuracy
 
@@ -1082,7 +1082,7 @@ class MultiStrategyIntradayTrader:
                 sup, res = self.calculate_support_resistance(symbol, price)
                 
                 strategy = pos.get("strategy", "Manual")
-                historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy) if strategy != "Manual" else 0.68
+                historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy) if strategy != "Manual" else 0.65
                 
                 out.append({
                     "Symbol": symbol.replace(".NS", ""),
@@ -1211,7 +1211,7 @@ class MultiStrategyIntradayTrader:
             adx_val = float(data["ADX"].iloc[-1]) if "ADX" in data.columns else 20
             htf_trend = int(data["HTF_Trend"].iloc[-1]) if "HTF_Trend" in data.columns else 1
 
-            # BUY STRATEGIES - Only generate if historical accuracy > 68%
+            # BUY STRATEGIES - Only generate if historical accuracy > 65%
             # Strategy 1: EMA + VWAP + ADX + HTF Trend
             if (ema8 > ema21 > ema50 and live > vwap and adx_val > 20 and htf_trend == 1):
                 action = "BUY"; confidence = 0.82; score = 9; strategy = "EMA_VWAP_Confluence"
@@ -1219,8 +1219,8 @@ class MultiStrategyIntradayTrader:
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
                 if rr >= 2.0:  # Minimum 1:2 risk-reward for intraday
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    # Only generate signal if historical accuracy > 68%
-                    if historical_accuracy >= 0.68:
+                    # Only generate signal if historical accuracy > 65%
+                    if historical_accuracy >= 0.65:
                         win_probability = min(0.85, historical_accuracy * 1.1)
                         signals.append({
                             "symbol": symbol, "action": action, "entry": live, "current_price": live,
@@ -1238,7 +1238,7 @@ class MultiStrategyIntradayTrader:
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
                 if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    if historical_accuracy >= 0.68:
+                    if historical_accuracy >= 0.65:
                         win_probability = min(0.80, historical_accuracy * 1.1)
                         signals.append({
                             "symbol": symbol, "action": action, "entry": live, "current_price": live,
@@ -1255,7 +1255,7 @@ class MultiStrategyIntradayTrader:
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
                 if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    if historical_accuracy >= 0.68:
+                    if historical_accuracy >= 0.65:
                         win_probability = min(0.78, historical_accuracy * 1.1)
                         signals.append({
                             "symbol": symbol, "action": action, "entry": live, "current_price": live,
@@ -1273,7 +1273,7 @@ class MultiStrategyIntradayTrader:
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
                 if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    if historical_accuracy >= 0.68:
+                    if historical_accuracy >= 0.65:
                         win_probability = min(0.82, historical_accuracy * 1.1)
                         signals.append({
                             "symbol": symbol, "action": action, "entry": live, "current_price": live,
@@ -1292,7 +1292,7 @@ class MultiStrategyIntradayTrader:
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
                 if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    if historical_accuracy >= 0.68:
+                    if historical_accuracy >= 0.65:
                         win_probability = min(0.77, historical_accuracy * 1.1)
                         signals.append({
                             "symbol": symbol, "action": action, "entry": live, "current_price": live,
@@ -1310,7 +1310,7 @@ class MultiStrategyIntradayTrader:
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
                 if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    if historical_accuracy >= 0.68:
+                    if historical_accuracy >= 0.65:
                         win_probability = min(0.80, historical_accuracy * 1.1)
                         signals.append({
                             "symbol": symbol, "action": action, "entry": live, "current_price": live,
@@ -1327,7 +1327,7 @@ class MultiStrategyIntradayTrader:
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
                 if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    if historical_accuracy >= 0.68:
+                    if historical_accuracy >= 0.65:
                         win_probability = min(0.75, historical_accuracy * 1.1)
                         signals.append({
                             "symbol": symbol, "action": action, "entry": live, "current_price": live,
@@ -1344,7 +1344,7 @@ class MultiStrategyIntradayTrader:
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
                 if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    if historical_accuracy >= 0.68:
+                    if historical_accuracy >= 0.65:
                         win_probability = min(0.73, historical_accuracy * 1.1)
                         signals.append({
                             "symbol": symbol, "action": action, "entry": live, "current_price": live,
@@ -1362,7 +1362,7 @@ class MultiStrategyIntradayTrader:
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
                 if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    if historical_accuracy >= 0.68:
+                    if historical_accuracy >= 0.65:
                         win_probability = min(0.78, historical_accuracy * 1.1)
                         signals.append({
                             "symbol": symbol, "action": action, "entry": live, "current_price": live,
@@ -1382,8 +1382,8 @@ class MultiStrategyIntradayTrader:
                     rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
                     if rr >= 2.0:
                         historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                        if historical_accuracy >= 0.68:
-                            win_probability = min(0.68, historical_accuracy * 1.1)
+                        if historical_accuracy >= 0.65:
+                            win_probability = min(0.70, historical_accuracy * 1.1)
                             signals.append({
                                 "symbol": symbol, "action": action, "entry": live, "current_price": live,
                                 "target": target, "stop_loss": stop_loss, "confidence": confidence,
@@ -1757,7 +1757,7 @@ with tabs[2]:
                     except (ValueError, AttributeError):
                         historical_wins.append(0.65)  # Default value
             
-            avg_historical = np.mean(historical_wins) if historical_wins else 0.68
+            avg_historical = np.mean(historical_wins) if historical_wins else 0.65
             
             # FIX: Handle P&L calculation safely
             current_pnl = 0
@@ -2130,8 +2130,3 @@ with tabs[7]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
-
-
-
-
-
