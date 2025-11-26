@@ -852,8 +852,125 @@ class MultiStrategyIntradayTrader:
         self.auto_execution = False
         self.auto_close_triggered = False
         self.strategy_performance = {k: {"signals": 0, "trades": 0, "wins": 0, "pnl": 0.0} for k in TRADING_STRATEGIES.keys()}
+        self.initial_capital = CAPITAL
+
+    # ADDED: Missing equity method
+    def equity(self):
+        """Calculates the total equity (cash + market value of open positions)."""
+        # Ensure prices are up to date before calculating market value
+        # Note: In a real environment, you'd want to use a reliable live price feed here
+        self.update_positions_pnl() 
+        market_value = 0.0
+        for symbol, pos in self.positions.items():
+            if pos.get("status") == "OPEN":
+                market_value += pos["quantity"] * pos["current_price"]
+        return self.cash + market_value
+
+    def get_performance_stats(self):
+        """Calculates overall performance metrics."""
+        self.update_positions_pnl()
+        total_pnl = sum(log["pnl"] for log in self.trade_log)
+        open_pnl = sum(pos["current_pnl"] for pos in self.positions.values() if pos["status"] == "OPEN")
+        return {
+            "total_pnl": total_pnl,
+            "open_pnl": open_pnl
+        }
     
     # ... (other methods remain the same)
+    
+    # Placeholder for the trade update function
+    def update_positions_pnl(self):
+        """Updates the current P&L and market price for all open positions."""
+        # This function needs data_manager (globally defined)
+        if "data_manager" not in globals():
+            return # Cannot update without data manager
+            
+        for symbol, pos in self.positions.items():
+            if pos.get("status") == "OPEN":
+                try:
+                    # Fetch price from cache/live feed (using data_manager's method for consistency)
+                    current_price = data_manager._validate_live_price(symbol)
+                    
+                    if pos["action"] == "BUY":
+                        pnl = (current_price - pos["entry_price"]) * pos["quantity"]
+                    else: # SELL (Short)
+                        pnl = (pos["entry_price"] - current_price) * pos["quantity"]
+                        
+                    pos["current_price"] = current_price
+                    pos["current_pnl"] = pnl
+                    pos["max_pnl"] = max(pos.get("max_pnl", -float('inf')), pnl)
+                    
+                    # Check for SL/Target hit (Simplified: assuming manual close in UI)
+                    # Implementation for Auto-Close at Market Close (15:10)
+                    if should_auto_close() and not self.auto_close_triggered:
+                        self.close_position(symbol, exit_price=current_price, reason="Auto Close @ 15:10")
+                        
+                except Exception:
+                    # Handle cases where price data is unavailable
+                    pos["current_pnl"] = pos.get("current_pnl", 0.0)
+                    pos["current_price"] = pos.get("current_price", pos["entry_price"])
+                    
+    def close_position(self, symbol, exit_price=None, reason="Manual Close"):
+        """Closes an open position and updates the log and cash balance."""
+        if symbol not in self.positions or self.positions[symbol]["status"] != "OPEN":
+            return False, f"No open position found for {symbol}"
+
+        pos = self.positions[symbol]
+        
+        # Get latest price if not provided (e.g., manual close)
+        if exit_price is None:
+            # Need to re-fetch/use updated price
+            try:
+                exit_price = data_manager._validate_live_price(symbol)
+            except Exception:
+                exit_price = pos["current_price"] # Use last known price as fallback
+
+        qty = pos["quantity"]
+        entry = pos["entry_price"]
+        action = pos["action"]
+
+        if action == "BUY":
+            pnl = (exit_price - entry) * qty
+            # Credit total transaction value back to cash
+            self.cash += qty * exit_price
+        else: # SELL
+            pnl = (entry - exit_price) * qty
+            # Credit/Debit to cash
+            self.cash += (entry * qty) + pnl
+            
+        # Log the trade
+        trade = {
+            "id": pos["trade_id"],
+            "symbol": symbol,
+            "action": action,
+            "quantity": qty,
+            "entry_price": entry,
+            "exit_price": exit_price,
+            "pnl": pnl,
+            "entry_time": pos["entry_time"],
+            "exit_time": now_indian().strftime("%Y-%m-%d %H:%M:%S"),
+            "strategy": pos["strategy"],
+            "reason": reason
+        }
+        self.trade_log.append(trade)
+
+        # Update strategy performance
+        strategy_key = pos["strategy"]
+        if strategy_key in self.strategy_performance:
+            self.strategy_performance[strategy_key]["pnl"] += pnl
+            if (action == "BUY" and pnl > 0) or (action == "SELL" and pnl > 0):
+                self.strategy_performance[strategy_key]["wins"] += 1
+
+        # Mark position as closed
+        pos["status"] = "CLOSED"
+        pos["exit_price"] = exit_price
+        pos["exit_time"] = trade["exit_time"]
+        pos["final_pnl"] = pnl
+        
+        # Remove from active positions (or keep for history view, depending on design)
+        # For simplicity in this demo, we keep it in self.positions but mark as CLOSED
+
+        return True, f"Closed {action} {symbol} @ ₹{exit_price:.2f}. P&L: ₹{pnl:+.2f}"
 
     def can_auto_trade(self):
         return self.auto_execution and self.daily_trade_count < MAX_DAILY_TRADES and self.auto_trades_count < MAX_AUTO_TRADES and market_open()
@@ -915,7 +1032,7 @@ class MultiStrategyIntradayTrader:
         for signal in sorted_signals[:MAX_AUTO_TRADES]:
             if not self.can_auto_trade():
                 break
-            if signal["symbol"] in self.positions:
+            if signal["symbol"] in self.positions and self.positions[signal["symbol"]].get("status") == "OPEN":
                 continue
                 
             # 3. Secondary check for "Mixed confirmed accuracy" (using win_probability as confirmation)
@@ -933,34 +1050,119 @@ class MultiStrategyIntradayTrader:
                     target=signal["target"],
                     win_probability=signal.get("win_probability", 0.75),
                     auto_trade=True,
-                    strategy=signal.get("strategy")
+                    strategy=signal.get("strategy_name") # Use strategy_name from the signal object
                 )
                 if success:
                     executed.append(msg)
         return executed
     
+    def calculate_support_resistance(self, symbol, price):
+        # Placeholder for S/R calculation used in position display
+        # In a real app, this would use data_manager
+        return price * 0.99, price * 1.01
+
+    def generate_quality_signals(self, universe, max_scan, min_confidence, min_score):
+        """Generates a list of high-quality signals by scanning the universe."""
+        
+        symbols_to_scan = NIFTY_50 if universe == "Nifty 50" else NIFTY_100
+        signals = []
+        
+        for i, symbol in enumerate(symbols_to_scan):
+            if i >= max_scan:
+                break
+            
+            data = data_manager.get_stock_data(symbol, "15m")
+            if data.empty or len(data) < 50:
+                continue
+
+            current_price = float(data["Close"].iloc[-1])
+            
+            # Use market profile for quick confirmation/score
+            mp_signal = data_manager.calculate_market_profile_signals(symbol)
+            mp_score = mp_signal['confidence'] * 10 
+            
+            # --- Strategy-based Signal Generation ---
+            for strategy_key, config in TRADING_STRATEGIES.items():
+                signal_data = data_manager.backtest_engine.generate_signal_for_backtest(data, strategy_key)
+                
+                if signal_data and signal_data['action'] != 'HOLD':
+                    
+                    # Calculate potential trade metrics
+                    accuracy = data_manager.get_historical_accuracy(symbol, strategy_key)
+                    
+                    if accuracy < 0.55: # Hard floor for low-accuracy strategies
+                        continue
+                        
+                    # Calculate SL/Target based on ATR (using 1.5x ATR for SL, 3x ATR for Target)
+                    atr = float(data["ATR"].iloc[-1])
+                    
+                    if config["type"] == "BUY":
+                        stop_loss = current_price - (atr * 1.5)
+                        target = current_price + (atr * 3.0)
+                        # Ensure SL/Target are sensible
+                        if stop_loss < current_price * 0.98: stop_loss = current_price * 0.98
+                        if target > current_price * 1.05: target = current_price * 1.05
+                    else: # SELL
+                        stop_loss = current_price + (atr * 1.5)
+                        target = current_price - (atr * 3.0)
+                        # Ensure SL/Target are sensible
+                        if stop_loss > current_price * 1.02: stop_loss = current_price * 1.02
+                        if target < current_price * 0.95: target = current_price * 0.95
+                        
+                    # Calculate Risk/Reward ratio
+                    risk = abs(current_price - stop_loss)
+                    reward = abs(target - current_price)
+                    rr_ratio = reward / risk if risk > 0 else float('inf')
+                    
+                    # Total Signal Score (weighted average of confidence, historical acc, market profile)
+                    total_confidence = (signal_data['confidence'] * 0.5 + accuracy * 0.3 + mp_signal['confidence'] * 0.2)
+                    
+                    # Final filtering
+                    if total_confidence >= min_confidence and (signal_data['action'] == mp_signal['signal'] or mp_signal['signal'] == 'NEUTRAL'):
+                        
+                        trader.strategy_performance[strategy_key]["signals"] += 1
+                        
+                        signals.append({
+                            "symbol": symbol,
+                            "action": signal_data['action'],
+                            "entry": current_price,
+                            "stop_loss": stop_loss,
+                            "target": target,
+                            "confidence": total_confidence,
+                            "win_probability": total_confidence * 0.8 + 0.2, # Simplified Win% for auto-trade filter
+                            "historical_accuracy": accuracy,
+                            "risk_reward": rr_ratio,
+                            "strategy_name": config['name'],
+                            "score": int(total_confidence * 100), # Simple integer score for sorting
+                            "strategy": strategy_key # Key for internal tracking
+                        })
+                        
+        return signals
+        
     def get_open_positions_data(self):
-        # ... (rest of get_open_positions_data remains the same)
+        # MODIFIED: Ensure trader PnL updates before displaying
         self.update_positions_pnl()
         out = []
         for symbol, pos in self.positions.items():
             if pos.get("status") != "OPEN":
                 continue
             
-            # ... (price, pnl, var calculation)
             try:
-                data = data_manager.get_stock_data(symbol, "5m")
-                price = float(data["Close"].iloc[-1])
+                # Use current_price from updated position data
+                price = pos["current_price"] 
+                pnl = pos["current_pnl"]
+                
                 sup, res = self.calculate_support_resistance(symbol, price)
                 
                 entry = pos["entry_price"]
-                if pos["action"] == "BUY":
-                    pnl = (price - entry) * pos["quantity"]
-                else:
-                    pnl = (entry - price) * pos["quantity"]
                 var = (price - entry) / entry * 100 if entry != 0 else 0
                 strategy = pos.get("strategy", "N/A")
-                historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                
+                # Using the global data_manager for accuracy look-up (requires global scope)
+                if "data_manager" in globals():
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                else:
+                    historical_accuracy = 0.65 # Fallback
 
                 out.append({
                     "Symbol": symbol.replace(".NS", ""),
@@ -984,9 +1186,10 @@ class MultiStrategyIntradayTrader:
             except Exception:
                 continue
         return out
-# ... (rest of MultiStrategyIntradayTrader class remains the same)
 
-# Initialize data_manager = EnhancedDataManager()
+# Initialize data_manager (must be global for other functions to use it)
+data_manager = EnhancedDataManager()
+
 if "trader" not in st.session_state:
     st.session_state.trader = MultiStrategyIntradayTrader()
 trader = st.session_state.trader
@@ -1064,22 +1267,23 @@ cols = st.columns(4)
 with cols[0]:
     st.markdown(f"""
     <div class="metric-card">
-    <div style="font-size: 12px; color: #6b7280;">Available Cash</div>
-    <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.cash:,.0f}</div>
+    <div style="font-size: 12px; color: #6b7280;">Initial Capital</div>
+    <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.initial_capital:,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 with cols[1]:
     st.markdown(f"""
     <div class="metric-card">
-    <div style="font-size: 12px; color: #6b7280;">Account Value</div>
-    <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.equity():,.0f}</div>
+    <div style="font-size: 12px; color: #6b7280;">Available Cash</div>
+    <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.cash:,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 with cols[2]:
+    # FIX APPLIED HERE: trader.equity() now exists
     st.markdown(f"""
     <div class="metric-card">
-    <div style="font-size: 12px; color: #6b7280;">Open Positions</div>
-    <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">{len(trader.positions)}</div>
+    <div style="font-size: 12px; color: #6b7280;">Account Value</div>
+    <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.equity():,.0f}</div>
     </div>
     """, unsafe_allow_html=True)
 with cols[3]:
@@ -1106,7 +1310,7 @@ with tabs[0]:
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Initial Capital", f"₹{trader.initial_capital:+,.0f}")
     c2.metric("Available Cash", f"₹{trader.cash:,.0f}")
-    c3.metric("Open Positions", len(trader.positions))
+    c3.metric("Open Positions", len([p for p in trader.positions.values() if p["status"] == "OPEN"]))
     c4.metric("Total P&L", f"₹{perf['total_pnl'] + perf['open_pnl']:+.2f}")
 
     # Strategy Performance Overview
@@ -1143,7 +1347,7 @@ with tabs[1]:
         generate_btn = st.button("Generate Signals", type="primary", use_container_width=True)
     with col2:
         if trader.auto_execution:
-            st.success("🔴 Auto Execution: ACTIVE")
+            st.success("🔴 Auto Execution: ACTIVE (Win >= 65% Required)")
         else:
             st.info("⚪ Auto Execution: INACTIVE")
 
@@ -1259,15 +1463,16 @@ with tabs[2]:
         
         # Position management
         st.subheader("Position Management")
-        cols_close = st.columns(4)
-        for idx, symbol in enumerate(list(trader.positions.keys())):
-            with cols_close[idx % 4]:
+        open_symbols = [sym for sym, pos in trader.positions.items() if pos["status"] == "OPEN"]
+        cols_close = st.columns(min(len(open_symbols), 4))
+        for idx, symbol in enumerate(open_symbols):
+            with cols_close[idx % min(len(open_symbols), 4)]:
                 if st.button(f"Close {symbol}", key=f"close_{symbol}", use_container_width=True):
                     success, msg = trader.close_position(symbol)
                     if success:
                         st.success(msg)
-        if st.button("Close All Positions", type="primary", use_container_width=True):
-            for sym in list(trader.positions.keys()):
+        if open_symbols and st.button("Close All Positions", type="primary", use_container_width=True):
+            for sym in list(open_symbols):
                 trader.close_position(sym)
             st.success("All positions closed!")
     else:
@@ -1275,8 +1480,12 @@ with tabs[2]:
         
 with tabs[3]:
     st.session_state.current_tab = "📊 Market Profile"
+    st.subheader("Market Profile & Key Levels")
+    st.info("Market Profile visualization and analysis functionality goes here.")
     # ... (Market Profile logic)
 
 with tabs[4]:
     st.session_state.current_tab = "🛠️ Strategies"
+    st.subheader("Strategy Details & Configuration")
+    st.info("Detailed configuration and backtesting results for each strategy will be shown here.")
     # ... (Strategy details logic)
