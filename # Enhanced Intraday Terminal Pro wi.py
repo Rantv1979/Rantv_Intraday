@@ -1374,6 +1374,24 @@ st.session_state.refresh_count += 1
 
 # Enhanced UI with Circular Market Mood Gauges
 st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Rantv Intraday Terminal Pro BUY/SELL Signals</h1>", unsafe_allow_html=True)
+st_autorefresh(interval=PRICE_REFRESH_MS, key="price_refresh_improved")
+
+cols = st.columns(7)
+try:
+    nift = data_manager._validate_live_price("^NSEI")
+    cols[0].metric("NIFTY 50", f"₹{nift:,.2f}")
+except Exception:
+    cols[0].metric("NIFTY 50", "N/A")
+try:
+    bn = data_manager._validate_live_price("^NSEBANK")
+    cols[1].metric("BANK NIFTY", f"₹{bn:,.2f}")
+except Exception:
+    cols[1].metric("BANK NIFTY", "N/A")
+cols[2].metric("Market Status", "LIVE" if market_open() else "CLOSED")
+cols[3].metric("Auto Close", "15:10")
+cols[4].metric("Stock Trades", f"{trader.stock_trades}/{MAX_STOCK_TRADES}")
+cols[5].metric("Auto Trades", f"{trader.auto_trades_count}/{MAX_AUTO_TRADES}")
+cols[6].metric("Available Cash", f"₹{trader.cash:,.0f}")
 
 # Manual refresh button instead of auto-refresh to prevent tab switching
 col1, col2, col3 = st.columns([2, 1, 1])
@@ -1919,6 +1937,7 @@ with tabs[6]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
 
 
 
