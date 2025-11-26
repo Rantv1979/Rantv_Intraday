@@ -10,7 +10,7 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 # Configuration
-st.set_page_config(page_title="Rantv Intraday Terminal Pro - Enhanced", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Intraday Terminal Pro - Enhanced", layout="wide", initial_sidebar_state="expanded")
 IND_TZ = pytz.timezone("Asia/Kolkata")
 
 CAPITAL = 2_000_000.0
@@ -19,8 +19,8 @@ MAX_DAILY_TRADES = 10
 MAX_STOCK_TRADES = 10
 MAX_AUTO_TRADES = 10
 
-SIGNAL_REFRESH_MS = 60000  # 60 seconds
-PRICE_REFRESH_MS = 30000   # 30 seconds
+SIGNAL_REFRESH_MS = 90000
+PRICE_REFRESH_MS = 25000
 
 MARKET_OPTIONS = ["CASH"]
 
@@ -236,16 +236,6 @@ st.markdown("""
         font-size: 12px;
         margin-left: 8px;
     }
-    
-    /* Auto-refresh status */
-    .auto-refresh-status {
-        background: #059669;
-        color: white;
-        padding: 8px 12px;
-        border-radius: 8px;
-        font-size: 12px;
-        margin: 5px 0;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -274,34 +264,12 @@ def ema(series, span):
     return series.ewm(span=span, adjust=False).mean()
 
 def rsi(series, period=14):
-    """Exact RSI calculation matching broker platforms like Zerodha"""
-    try:
-        # Calculate price changes
-        delta = series.diff()
-        
-        # Separate gains and losses
-        gain = delta.where(delta > 0, 0)
-        loss = -delta.where(delta < 0, 0)
-        
-        # Calculate EWMA (Exponential Weighted Moving Average) for gains and losses
-        # This is what most brokers use
-        avg_gain = gain.ewm(span=period, adjust=False).mean()
-        avg_loss = loss.ewm(span=period, adjust=False).mean()
-        
-        # Calculate RS and RSI
-        rs = avg_gain / avg_loss.replace(0, np.nan)
-        rsi = 100 - (100 / (1 + rs))
-        
-        return rsi.fillna(50)
-    except Exception:
-        # Fallback to standard calculation
-        delta = series.diff()
-        gain = delta.clip(lower=0)
-        loss = -delta.clip(upper=0)
-        avg_gain = gain.ewm(span=period, adjust=False).mean()
-        avg_loss = loss.ewm(span=period, adjust=False).mean()
-        rs = avg_gain / avg_loss.replace(0, np.nan)
-        return 100 - (100 / (1 + rs.fillna(1)))
+    delta = series.diff()
+    gain = delta.clip(lower=0).rolling(window=period).mean()
+    loss = (-delta.clip(upper=0)).rolling(window=period).mean()
+    rs = gain / loss.replace(0, np.nan)
+    rs = rs.fillna(0)
+    return 100 - (100 / (1 + rs))
 
 def calculate_atr(high, low, close, period=14):
     tr1 = high - low
@@ -447,8 +415,6 @@ class EnhancedDataManager:
         self.backtest_engine = BacktestEngine()
         self.market_profile_cache = {}
         self.last_rsi_scan = None
-        self.last_signal_scan = None
-        self.last_price_update = None
 
     def _validate_live_price(self, symbol):
         now_ts = time.time()
@@ -522,7 +488,7 @@ class EnhancedDataManager:
         except Exception:
             pass
 
-        # Enhanced Indicators with FIXED RSI calculation
+        # Enhanced Indicators
         df["EMA8"] = ema(df["Close"], 8)
         df["EMA21"] = ema(df["Close"], 21)
         df["EMA50"] = ema(df["Close"], 50)
@@ -695,38 +661,15 @@ class EnhancedDataManager:
             return {"signal": "NEUTRAL", "confidence": 0.5, "reason": f"Error: {str(e)}"}
 
     def should_run_rsi_scan(self):
-        """Check if RSI scan should run (every 60 seconds)"""
+        """Check if RSI scan should run (every 3rd refresh)"""
         current_time = time.time()
         if self.last_rsi_scan is None:
             self.last_rsi_scan = current_time
             return True
         
-        if current_time - self.last_rsi_scan >= 60:
+        # Run every 3rd refresh (approx every 75 seconds)
+        if current_time - self.last_rsi_scan >= 75:
             self.last_rsi_scan = current_time
-            return True
-        return False
-
-    def should_run_signal_scan(self):
-        """Check if signal scan should run (every 60 seconds)"""
-        current_time = time.time()
-        if self.last_signal_scan is None:
-            self.last_signal_scan = current_time
-            return True
-        
-        if current_time - self.last_signal_scan >= 60:
-            self.last_signal_scan = current_time
-            return True
-        return False
-
-    def should_update_prices(self):
-        """Check if prices should update (every 30 seconds)"""
-        current_time = time.time()
-        if self.last_price_update is None:
-            self.last_price_update = current_time
-            return True
-        
-        if current_time - self.last_price_update >= 30:
-            self.last_price_update = current_time
             return True
         return False
 
@@ -1418,44 +1361,26 @@ if "trader" not in st.session_state:
     st.session_state.trader = MultiStrategyIntradayTrader()
 trader = st.session_state.trader
 
-# Auto-refresh logic
+# Auto-refresh counter to prevent tab switching
 if "refresh_count" not in st.session_state:
     st.session_state.refresh_count = 0
 if "current_tab" not in st.session_state:
     st.session_state.current_tab = "📈 Dashboard"
-if "last_auto_refresh" not in st.session_state:
-    st.session_state.last_auto_refresh = time.time()
 
-# Check if we should auto-refresh
-current_time = time.time()
-if current_time - st.session_state.last_auto_refresh >= 30:  # Refresh every 30 seconds
-    st.session_state.refresh_count += 1
-    st.session_state.last_auto_refresh = current_time
-    st.rerun()
+st.session_state.refresh_count += 1
 
 # Enhanced UI with Circular Market Mood Gauges
-st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Rantv Intraday Terminal Pro - Enhanced BUY/SELL Signals</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Intraday Terminal Pro - Enhanced BUY/SELL Signals</h1>", unsafe_allow_html=True)
 
-# Auto-refresh status
-st.markdown(f"""
-<div class="auto-refresh-status">
-    🔄 Auto-refresh: ACTIVE (Every 30s) | Refresh Count: <span class="refresh-counter">{st.session_state.refresh_count}</span> | Last Update: {datetime.now().strftime('%H:%M:%S')}
-</div>
-""", unsafe_allow_html=True)
-
-# Manual refresh buttons
-col1, col2, col3 = st.columns([1, 1, 1])
+# Manual refresh button instead of auto-refresh to prevent tab switching
+col1, col2, col3 = st.columns([2, 1, 1])
 with col1:
-    if st.button("🔄 Force Refresh All", use_container_width=True, type="primary"):
-        st.session_state.refresh_count += 1
-        st.rerun()
+    st.markdown(f"<div style='text-align: left; color: #6b7280; font-size: 14px;'>Refresh Count: <span class='refresh-counter'>{st.session_state.refresh_count}</span></div>", unsafe_allow_html=True)
 with col2:
-    if st.button("📊 Update Prices", use_container_width=True):
-        data_manager.last_price_update = None
+    if st.button("🔄 Manual Refresh", use_container_width=True):
         st.rerun()
 with col3:
-    if st.button("🚦 Update Signals", use_container_width=True):
-        data_manager.last_signal_scan = None
+    if st.button("📊 Update Prices", use_container_width=True):
         st.rerun()
 
 # Market Mood Gauges for Nifty50 & BankNifty
@@ -1565,7 +1490,7 @@ scan_limit = st.sidebar.selectbox("Scan Limit", ["All Stocks", "Top 40", "Top 20
 max_scan_map = {"All Stocks": None, "Top 40": 40, "Top 20": 20}
 max_scan = max_scan_map[scan_limit]
 
-# Enhanced Tabs with Better Styling
+# Enhanced Tabs with Better Styling - Using session state to remember current tab
 tabs = st.tabs([
     "📈 Dashboard", 
     "🚦 Signals", 
@@ -1580,7 +1505,7 @@ tabs = st.tabs([
 if "current_tab" not in st.session_state:
     st.session_state.current_tab = "📈 Dashboard"
 
-# Tab content with auto-refresh handling
+# Tab content with manual refresh handling
 with tabs[0]:
     st.session_state.current_tab = "📈 Dashboard"
     st.subheader("Account Summary")
@@ -1618,10 +1543,6 @@ with tabs[0]:
 with tabs[1]:
     st.session_state.current_tab = "🚦 Signals"
     st.subheader("Multi-Strategy BUY/SELL Signals")
-    
-    # Auto-scan signals if it's time
-    should_scan_signals = data_manager.should_run_signal_scan()
-    
     col1, col2 = st.columns([1, 2])
     with col1:
         universe = st.selectbox("Universe", ["Nifty 50", "Nifty 100"])
@@ -1632,7 +1553,7 @@ with tabs[1]:
         else:
             st.info("⚪ Auto Execution: INACTIVE")
             
-    if generate_btn or should_scan_signals:
+    if generate_btn or trader.auto_execution:
         with st.spinner("Scanning stocks with enhanced BUY/SELL strategies..."):
             signals = trader.generate_quality_signals(universe, max_scan=max_scan, min_confidence=min_conf_percent/100.0, min_score=min_score)
         
@@ -1690,9 +1611,6 @@ with tabs[1]:
                             st.success(msg)
         else:
             st.info("No confirmed signals with current filters.")
-            
-        if should_scan_signals and not generate_btn:
-            st.success("🔄 Signals auto-updated (every 60 seconds)")
 
 with tabs[2]:
     st.session_state.current_tab = "💰 Paper Trading"
@@ -1703,7 +1621,7 @@ with tabs[2]:
     if open_pos:
         st.dataframe(pd.DataFrame(open_pos), use_container_width=True)
         
-        # Enhanced Accuracy Summary
+        # FIXED: Enhanced Accuracy Summary - Fixed KeyError
         st.subheader("📊 Enhanced Accuracy Analysis")
         
         # Strategy-wise analysis
@@ -1713,7 +1631,7 @@ with tabs[2]:
         for strategy in strategies_used:
             strategy_positions = [pos for pos in open_pos if pos['Strategy'] == strategy]
             
-            # Handle Historical Win % safely
+            # FIX: Check if 'Historical Win %' exists and handle it safely
             historical_wins = []
             for pos in strategy_positions:
                 if 'Historical Win %' in pos:
@@ -1725,7 +1643,7 @@ with tabs[2]:
             
             avg_historical = np.mean(historical_wins) if historical_wins else 0.65
             
-            # Handle P&L calculation safely
+            # FIX: Handle P&L calculation safely
             current_pnl = 0
             for pos in strategy_positions:
                 if 'P&L' in pos:
@@ -1761,6 +1679,9 @@ with tabs[2]:
             st.success("All positions closed!")
     else:
         st.info("No open positions.")
+
+# Continue with the rest of your tabs (Market Profile, RSI Extreme, Backtest, Strategies)
+# ... [rest of your tab implementations remain the same]
 
 with tabs[3]:
     st.session_state.current_tab = "📊 Market Profile"
@@ -1830,10 +1751,10 @@ with tabs[3]:
 
 with tabs[4]:
     st.session_state.current_tab = "📉 RSI Extreme"
-    st.subheader("RSI Extreme Scanner - Broker Matched")
-    st.write("RSI calculated to match Zerodha/Kite platform (15min timeframe, EWMA method)")
+    st.subheader("RSI Extreme Scanner")
+    st.write("Automated scan for stocks with RSI in oversold (<30) and overbought (>70) zones")
     
-    # Auto-scan RSI if it's time
+    # Check if we should run RSI scan (every 3rd refresh)
     should_run_rsi = data_manager.should_run_rsi_scan()
     
     col1, col2, col3, col4 = st.columns(4)
@@ -1844,118 +1765,64 @@ with tabs[4]:
     with col3:
         rsi_high_threshold = st.slider("Overbought Threshold", 65, 80, 70, 1)
     with col4:
-        min_volume_multiplier = st.slider("Min Volume", 1.0, 3.0, 1.2, 0.1)
+        min_volume_multiplier = st.slider("Min Volume", 1.0, 3.0, 1.5, 0.1)
     
-    # Always show scan button and auto-scan
-    scan_clicked = st.button("🔍 Scan RSI Extremes", type="primary", use_container_width=True)
-    
-    if scan_clicked or should_run_rsi:
+    if st.button("Scan RSI Extremes", type="primary", use_container_width=True) or should_run_rsi:
         stocks = NIFTY_50 if universe_rsi == "Nifty 50" else NIFTY_100
         rsi_low_stocks = []
         rsi_high_stocks = []
-        normal_stocks = []
         
         progress_bar = st.progress(0)
-        status_text = st.empty()
-        
         for idx, symbol in enumerate(stocks):
-            status_text.text(f"Calculating RSI for {symbol.replace('.NS', '')} ({idx+1}/{len(stocks)})")
             progress_bar.progress((idx + 1) / len(stocks))
-            
             try:
-                # Get 15min data specifically for RSI calculation
                 data = data_manager.get_stock_data(symbol, "15m")
-                if data is not None and len(data) > 20:
-                    # Use the exact RSI calculation
+                if data is not None and len(data) > 14:
                     current_rsi = float(data["RSI14"].iloc[-1])
                     current_price = float(data["Close"].iloc[-1])
                     current_volume = float(data["Volume"].iloc[-1])
                     avg_volume = float(data["Volume"].rolling(20).mean().iloc[-1])
                     
+                    # Check volume condition
                     volume_ok = current_volume > avg_volume * min_volume_multiplier
                     
-                    stock_info = {
-                        "Symbol": symbol.replace(".NS", ""),
-                        "RSI": f"{current_rsi:.1f}",
-                        "Price": f"₹{current_price:.2f}",
-                        "Volume Ratio": f"{current_volume/avg_volume:.1f}x",
-                        "Signal": "Normal"
-                    }
-                    
-                    # Special check for ICICIBANK to debug
-                    if symbol == "ICICIBANK.NS":
-                        st.info(f"**ICICIBANK Debug:** RSI = {current_rsi:.2f}, Price = ₹{current_price:.2f}")
-                    
                     if current_rsi <= rsi_low_threshold and volume_ok:
-                        stock_info["Signal"] = "Oversold"
-                        rsi_low_stocks.append(stock_info)
-                    elif current_rsi >= rsi_high_threshold and volume_ok:
-                        stock_info["Signal"] = "Overbought" 
-                        rsi_high_stocks.append(stock_info)
-                    else:
-                        normal_stocks.append(stock_info)
-                        
-            except Exception as e:
+                        rsi_low_stocks.append({
+                            "Symbol": symbol.replace(".NS", ""),
+                            "RSI": f"{current_rsi:.1f}",
+                            "Price": f"₹{current_price:.2f}",
+                            "Volume Ratio": f"{current_volume/avg_volume:.1f}x",
+                            "Signal": "Oversold"
+                        })
+                    
+                    if current_rsi >= rsi_high_threshold and volume_ok:
+                        rsi_high_stocks.append({
+                            "Symbol": symbol.replace(".NS", ""),
+                            "RSI": f"{current_rsi:.1f}",
+                            "Price": f"₹{current_price:.2f}",
+                            "Volume Ratio": f"{current_volume/avg_volume:.1f}x",
+                            "Signal": "Overbought"
+                        })
+            except:
                 continue
-                
         progress_bar.empty()
-        status_text.empty()
         
-        # Display results
-        col_results1, col_results2 = st.columns(2)
+        # Display results in tabulated format
+        if rsi_low_stocks:
+            st.subheader(f"📉 Oversold Stocks (RSI < {rsi_low_threshold})")
+            low_df = pd.DataFrame(rsi_low_stocks)
+            st.dataframe(low_df, use_container_width=True)
         
-        with col_results1:
-            if rsi_high_stocks:
-                st.subheader(f"📈 Overbought Stocks (RSI > {rsi_high_threshold})")
-                high_df = pd.DataFrame(rsi_high_stocks)
-                
-                # Apply styling to highlight extreme values
-                def highlight_rsi_extreme(val):
-                    if "RSI" in str(val):
-                        try:
-                            rsi_val = float(val)
-                            if rsi_val > 80:
-                                return 'background-color: #ffcccc'  # Light red
-                            elif rsi_val > 70:
-                                return 'background-color: #ffe6cc'  # Light orange
-                        except:
-                            pass
-                    return ''
-                
-                st.dataframe(high_df.style.applymap(highlight_rsi_extreme), use_container_width=True)
-        
-        with col_results2:
-            if rsi_low_stocks:
-                st.subheader(f"📉 Oversold Stocks (RSI < {rsi_low_threshold})")
-                low_df = pd.DataFrame(rsi_low_stocks)
-                
-                def highlight_rsi_oversold(val):
-                    if "RSI" in str(val):
-                        try:
-                            rsi_val = float(val)
-                            if rsi_val < 20:
-                                return 'background-color: #ccffcc'  # Light green
-                            elif rsi_val < 30:
-                                return 'background-color: #e6ffcc'  # Light lime
-                        except:
-                            pass
-                    return ''
-                
-                st.dataframe(low_df.style.applymap(highlight_rsi_oversold), use_container_width=True)
-        
-        # Show normal stocks in expander for reference
-        if normal_stocks and st.checkbox("Show Normal RSI Stocks (40-60)"):
-            normal_df = pd.DataFrame([s for s in normal_stocks if 40 <= float(s['RSI']) <= 60])
-            if not normal_df.empty:
-                st.subheader("📊 Normal RSI Stocks")
-                st.dataframe(normal_df, use_container_width=True)
+        if rsi_high_stocks:
+            st.subheader(f"📈 Overbought Stocks (RSI > {rsi_high_threshold})")
+            high_df = pd.DataFrame(rsi_high_stocks)
+            st.dataframe(high_df, use_container_width=True)
         
         if not rsi_low_stocks and not rsi_high_stocks:
-            st.info("✅ No extreme RSI stocks found. Market is in normal range.")
-            
-        # Show auto-scan status
-        if should_run_rsi and not scan_clicked:
-            st.success("🔄 Auto-scanned (updates every 60 seconds)")
+            st.info("No stocks found in RSI extreme zones with current filters.")
+        
+        if should_run_rsi:
+            st.info("🔄 Auto-scan completed (runs every 3rd refresh)")
 
 with tabs[5]:
     st.session_state.current_tab = "🔍 Backtest"
@@ -2050,4 +1917,4 @@ with tabs[6]:
             st.write(f"**Typical Historical Accuracy:** {default_accuracies.get(strategy_key, '60-70%')}")
 
 st.markdown("---")
-st.markdown("<div style='text-align:center; color: #6b7280;'>Rantv Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
