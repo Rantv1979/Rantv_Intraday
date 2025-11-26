@@ -8,6 +8,7 @@ import streamlit as st
 import yfinance as yf
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
+from streamlit_autorefresh import st_autorefresh
 
 # Configuration
 st.set_page_config(page_title="Rantv Intraday Terminal Pro - Enhanced", layout="wide", initial_sidebar_state="expanded")
@@ -1918,6 +1919,7 @@ with tabs[6]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
 
 
 
