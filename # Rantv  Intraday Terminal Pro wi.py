@@ -1353,10 +1353,8 @@ class MultiStrategyIntradayTrader:
             htf_trend = int(data["HTF_Trend"].iloc[-1]) if "HTF_Trend" in data.columns else 1
 
             # Get Fibonacci levels
-            fib_data_382 = data.get("Fib_level_38.2", [live * 1.05])
-fib_data_618 = data.get("Fib_level_61.8", [live * 0.95])
-fib_382 = float(fib_data_382.iloc[-1]) if hasattr(fib_data_382, 'iloc') else float(fib_data_382[-1])
-fib_618 = float(fib_data_618.iloc[-1]) if hasattr(fib_data_618, 'iloc') else float(fib_data_618[-1])
+            fib_618 = float(data.get("Fib_level_61.8", [live * 0.95])[-1])
+            fib_382 = float(data.get("Fib_level_38.2", [live * 1.05])[-1])
 
             # BUY STRATEGIES - Only generate if historical accuracy > 65%
             # Strategy 1: EMA + VWAP + ADX + HTF Trend
@@ -1674,9 +1672,9 @@ st.subheader("📊 Market Mood Gauges")
 
 try:
     nifty_data = yf.download("^NSEI", period="1d", interval="5m", auto_adjust=False)
-   nifty_current = nifty_data["Close"].iloc[-1]
-nifty_prev = nifty_data["Close"].iloc[-2]
-   nifty_change = ((nifty_current - nifty_prev) / nifty_prev) * 100
+    nifty_current = float(nifty_data["Close"].iloc[-1])
+    nifty_prev = float(nifty_data["Close"].iloc[-2])
+    nifty_change = ((nifty_current - nifty_prev) / nifty_prev) * 100
     
     # Calculate Nifty sentiment score (0-100) with rounding
     nifty_sentiment = 50 + (nifty_change * 8)  # Base 50 + amplified change
@@ -1689,9 +1687,9 @@ except Exception:
 
 try:
     banknifty_data = yf.download("^NSEBANK", period="1d", interval="5m", auto_adjust=False)
-   banknifty_current = float(banknifty_data["Close"].iloc[-1].iloc[0])
-   banknifty_prev = float(banknifty_data["Close"].iloc[-2].iloc[0]) 
-   banknifty_change = ((banknifty_current - banknifty_prev) / banknifty_prev) * 100
+    banknifty_current = float(banknifty_data["Close"].iloc[-1])
+    banknifty_prev = float(banknifty_data["Close"].iloc[-2])
+    banknifty_change = ((banknifty_current - banknifty_prev) / banknifty_prev) * 100
     
     # Calculate BankNifty sentiment score with rounding
     banknifty_sentiment = 50 + (banknifty_change * 8)
@@ -1889,9 +1887,8 @@ with tabs[1]:
                     st.write(f"Qty: {qty}")
                 with col_c:
                     # FIXED: Use unique key with index to prevent duplicates
-                   for idx, s in enumerate(signals):
-                  if st.button(f"Execute", key=f"exec_{s['symbol']}_{s.get('strategy', 'unknown')}_{idx}"):
-                            success, msg = trader.execute_trade(
+                    if st.button(f"Execute", key=f"exec_{i}_{s['symbol']}_{s['strategy']}"):
+                        success, msg = trader.execute_trade(
                             symbol=s["symbol"], action=s["action"], quantity=qty, price=s["entry"],
                             stop_loss=s["stop_loss"], target=s["target"], win_probability=s.get("win_probability",0.75),
                             strategy=s.get("strategy")
@@ -2343,5 +2340,3 @@ with tabs[7]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
-
-
