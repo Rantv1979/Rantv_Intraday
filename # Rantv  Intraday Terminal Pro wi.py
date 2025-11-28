@@ -20,7 +20,7 @@ MAX_DAILY_TRADES = 10
 MAX_STOCK_TRADES = 10
 MAX_AUTO_TRADES = 10
 
-SIGNAL_REFRESH_MS = 90000
+SIGNAL_REFRESH_MS = 120000
 PRICE_REFRESH_MS = 60000
 
 MARKET_OPTIONS = ["CASH", "MIDCAP"]
@@ -2336,3 +2336,4 @@ with tabs[7]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
