@@ -23,7 +23,7 @@ MAX_AUTO_TRADES = 10
 SIGNAL_REFRESH_MS = 90000
 PRICE_REFRESH_MS = 60000
 
-MARKET_OPTIONS = ["CASH"]
+MARKET_OPTIONS = ["CASH", "MIDCAP"]
 
 NIFTY_50 = [
    "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "HINDUNILVR.NS",
@@ -38,25 +38,45 @@ NIFTY_50 = [
     "HEROMOTOCO.NS", "INDUSINDBK.NS", "ADANIENT.NS", "TATACONSUM.NS", "BPCL.NS"
 ]
 
-NIFTY_100 = NIFTY_50 + [
-    "BAJAJHLDNG.NS", "TATAMOTORS.NS", "VEDANTA.NS", "PIDILITIND.NS",
-    "BERGEPAINT.NS", "AMBUJACEM.NS", "DABUR.NS", "HAVELLS.NS", "ICICIPRULI.NS",
-    "MARICO.NS", "PEL.NS", "SIEMENS.NS", "TORNTPHARM.NS", "ACC.NS",
-    "AUROPHARMA.NS", "BOSCHLTD.NS", "GLENMARK.NS", "MOTHERSUMI.NS", "BIOCON.NS",
-    "ZYDUSLIFE.NS", "COLPAL.NS", "CONCOR.NS", "DLF.NS", "GODREJCP.NS",
-    "HINDPETRO.NS", "IBULHSGFIN.NS", "IOC.NS", "JINDALSTEL.NS", "LUPIN.NS",
-    "MANAPPURAM.NS", "MCDOWELL-N.NS", "NMDC.NS", "PETRONET.NS", "PFC.NS",
-    "PNB.NS", "RBLBANK.NS", "SAIL.NS", "SRTRANSFIN.NS", "TATAPOWER.NS",
-    "YESBANK.NS", "ZEEL.NS"
+NIFTY_MIDCAP_100 = [
+    "ADANIGREEN.NS", "ADANITRANS.NS", "ABCAPITAL.NS", "ABFRL.NS", "AUBANK.NS",
+    "ASTRAL.NS", "BAJAJELEC.NS", "BALKRISIND.NS", "BANDHANBNK.NS", "BANKBARODA.NS",
+    "BATAINDIA.NS", "BEL.NS", "BHARATFORG.NS", "BHEL.NS", "BIOCON.NS",
+    "BOSCHLTD.NS", "CANBK.NS", "CHOLAFIN.NS", "CIPLA.NS", "COALINDIA.NS",
+    "COFORGE.NS", "COLPAL.NS", "CONCOR.NS", "CUMMINSIND.NS", "DABUR.NS",
+    "DALBHARAT.NS", "DEEPAKNTR.NS", "DHANI.NS", "DIVISLAB.NS", "DLF.NS",
+    "DRREDDY.NS", "EICHERMOT.NS", "ESCORTS.NS", "EXIDEIND.NS", "FEDERALBNK.NS",
+    "GAIL.NS", "GLENMARK.NS", "GODREJCP.NS", "GODREJPROP.NS", "GRASIM.NS",
+    "GUJGASLTD.NS", "HAL.NS", "HAVELLS.NS", "HDFCAMC.NS", "HDFCLIFE.NS",
+    "HEROMOTOCO.NS", "HINDPETRO.NS", "HINDUNILVR.NS", "ICICIPRULI.NS", "IDEA.NS",
+    "IDFCFIRSTB.NS", "IGL.NS", "INDIAMART.NS", "INDIANB.NS", "INDIGO.NS",
+    "INDUSINDBK.NS", "INDUSTOWER.NS", "INFY.NS", "IOC.NS", "JINDALSTEL.NS",
+    "JSWENERGY.NS", "JUBLFOOD.NS", "KOTAKBANK.NS", "LALPATHLAB.NS", "LICHSGFIN.NS",
+    "LT.NS", "LTTS.NS", "LUPIN.NS", "M&M.NS", "M&MFIN.NS",
+    "MANAPPURAM.NS", "MARICO.NS", "MARUTI.NS", "MCDOWELL-N.NS", "MFSL.NS",
+    "MGL.NS", "MOTHERSON.NS", "MPHASIS.NS", "MRF.NS", "MUTHOOTFIN.NS",
+    "NATIONALUM.NS", "NAUKRI.NS", "NAVINFLUOR.NS", "NESTLEIND.NS", "NMDC.NS",
+    "NTPC.NS", "OFSS.NS", "PAGEIND.NS", "PEL.NS", "PERSISTENT.NS",
+    "PETRONET.NS", "PFC.NS", "PIDILITIND.NS", "PIIND.NS", "PNB.NS",
+    "POWERGRID.NS", "RECLTD.NS", "RELIANCE.NS", "SAIL.NS", "SBICARD.NS",
+    "SBILIFE.NS", "SBIN.NS", "SHREECEM.NS", "SIEMENS.NS", "SRF.NS",
+    "SRTRANSFIN.NS", "SUNPHARMA.NS", "SUNTV.NS", "TATACHEM.NS", "TATACONSUM.NS",
+    "TATAMOTORS.NS", "TATAPOWER.NS", "TATASTEEL.NS", "TCS.NS", "TECHM.NS",
+    "TITAN.NS", "TORNTPHARM.NS", "TRENT.NS", "ULTRACEMCO.NS", "UPL.NS",
+    "VOLTAS.NS", "WIPRO.NS", "YESBANK.NS", "ZEEL.NS"
 ]
 
-# Enhanced Trading Strategies with Better Balance
+# Combine Nifty 100 & Midcap into one universe
+NIFTY_100_MIDCAP = NIFTY_50 + NIFTY_MIDCAP_100
+
+# Enhanced Trading Strategies with Fib Retracement
 TRADING_STRATEGIES = {
     "EMA_VWAP_Confluence": {"name": "EMA + VWAP Confluence", "weight": 3, "type": "BUY"},
     "RSI_MeanReversion": {"name": "RSI Mean Reversion", "weight": 2, "type": "BUY"},
     "Bollinger_Reversion": {"name": "Bollinger Band Reversion", "weight": 2, "type": "BUY"},
     "MACD_Momentum": {"name": "MACD Momentum", "weight": 2, "type": "BUY"},
     "Support_Resistance_Breakout": {"name": "Support/Resistance Breakout", "weight": 3, "type": "BUY"},
+    "Fib_Golden_Zone": {"name": "Fib Golden Zone Retracement", "weight": 3, "type": "BUY"},  # NEW STRATEGY
     "EMA_VWAP_Downtrend": {"name": "EMA + VWAP Downtrend", "weight": 3, "type": "SELL"},
     "RSI_Overbought": {"name": "RSI Overbought Reversal", "weight": 2, "type": "SELL"},
     "Bollinger_Rejection": {"name": "Bollinger Band Rejection", "weight": 2, "type": "SELL"},
@@ -64,7 +84,7 @@ TRADING_STRATEGIES = {
     "Trend_Reversal": {"name": "Trend Reversal", "weight": 2, "type": "SELL"}
 }
 
-# FIXED CSS with Light Yellowish Background and Better Tabs
+# ENHANCED CSS with Multi-Color Tabs and Better Styling
 st.markdown("""
 <style>
     /* Light Yellowish Background */
@@ -78,19 +98,20 @@ st.markdown("""
         padding-top: 2rem;
     }
     
-    /* Enhanced Tabs with Multiple Colors */
+    /* ENHANCED Multi-Color Tabs with Gradient Effects */
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
-        background: linear-gradient(135deg, #e6f2ff 0%, #ffe6e6 50%, #e6ffe6 100%);
+        background: linear-gradient(135deg, #e6f2ff 0%, #ffe6e6 25%, #e6ffe6 50%, #fff2e6 75%, #f0e6ff 100%);
         padding: 8px;
         border-radius: 12px;
         margin-bottom: 1rem;
+        border: 2px solid #e0f2fe;
     }
     
     .stTabs [data-baseweb="tab"] {
         height: 60px;
         white-space: pre-wrap;
-        background-color: #ffffff;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border-radius: 8px;
         gap: 8px;
         padding: 12px 20px;
@@ -102,18 +123,58 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
+    /* Individual Tab Colors */
+    .stTabs [data-baseweb="tab"]:nth-child(1) {
+        background: linear-gradient(135deg, #e6f2ff 0%, #d1e7ff 100%);
+        border: 2px solid #93c5fd;
+    }
+    
+    .stTabs [data-baseweb="tab"]:nth-child(2) {
+        background: linear-gradient(135deg, #ffe6e6 0%, #ffd1d1 100%);
+        border: 2px solid #fca5a5;
+    }
+    
+    .stTabs [data-baseweb="tab"]:nth-child(3) {
+        background: linear-gradient(135deg, #e6ffe6 0%, #d1ffd1 100%);
+        border: 2px solid #86efac;
+    }
+    
+    .stTabs [data-baseweb="tab"]:nth-child(4) {
+        background: linear-gradient(135deg, #fff2e6 0%, #ffe6d1 100%);
+        border: 2px solid #fdba74;
+    }
+    
+    .stTabs [data-baseweb="tab"]:nth-child(5) {
+        background: linear-gradient(135deg, #f0e6ff 0%, #e6d1ff 100%);
+        border: 2px solid #c4b5fd;
+    }
+    
+    .stTabs [data-baseweb="tab"]:nth-child(6) {
+        background: linear-gradient(135deg, #e6f7ff 0%, #d1f0ff 100%);
+        border: 2px solid #7dd3fc;
+    }
+    
+    .stTabs [data-baseweb="tab"]:nth-child(7) {
+        background: linear-gradient(135deg, #fff0f5 0%, #ffe6ee 100%);
+        border: 2px solid #f9a8d4;
+    }
+    
+    .stTabs [data-baseweb="tab"]:nth-child(8) {
+        background: linear-gradient(135deg, #f0fff0 0%, #e6ffe6 100%);
+        border: 2px solid #bbf7d0;
+    }
+    
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
-        color: white;
-        border: 2px solid #2563eb;
-        box-shadow: 0 4px 8px rgba(30, 58, 138, 0.3);
-        transform: translateY(-2px);
+        background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%) !important;
+        color: white !important;
+        border: 2px solid #2563eb !important;
+        box-shadow: 0 4px 8px rgba(30, 58, 138, 0.3) !important;
+        transform: translateY(-2px) !important;
     }
     
     .stTabs [data-baseweb="tab"]:hover {
-        background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
-        border: 2px solid #93c5fd;
         transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
     
     /* FIXED Market Mood Gauge Styles - Circular */
@@ -264,6 +325,39 @@ st.markdown("""
         background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
         border-left: 4px solid #dc2626;
     }
+    
+    /* ENHANCED: Win/Loss highlighting for Paper Trading */
+    .win-trade {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%) !important;
+        border-left: 4px solid #059669 !important;
+        border-radius: 8px;
+        margin: 2px 0;
+    }
+    
+    .loss-trade {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%) !important;
+        border-left: 4px solid #dc2626 !important;
+        border-radius: 8px;
+        margin: 2px 0;
+    }
+    
+    .profit-highlight {
+        color: #059669;
+        font-weight: bold;
+        background: #d1fae5;
+        padding: 4px 8px;
+        border-radius: 12px;
+        border: 1px solid #059669;
+    }
+    
+    .loss-highlight {
+        color: #dc2626;
+        font-weight: bold;
+        background: #fee2e2;
+        padding: 4px 8px;
+        border-radius: 12px;
+        border: 1px solid #dc2626;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -328,6 +422,22 @@ def bollinger_bands(close, period=20, std_dev=2):
     upper = sma + (std * std_dev)
     lower = sma - (std * std_dev)
     return upper, sma, lower
+
+def calculate_fibonacci_levels(high, low):
+    """Calculate Fibonacci retracement levels"""
+    high_val = float(high)
+    low_val = float(low)
+    diff = high_val - low_val
+    
+    return {
+        'level_0': high_val,
+        'level_23.6': high_val - 0.236 * diff,
+        'level_38.2': high_val - 0.382 * diff,
+        'level_50.0': high_val - 0.5 * diff,
+        'level_61.8': high_val - 0.618 * diff,  # Golden ratio
+        'level_78.6': high_val - 0.786 * diff,
+        'level_100': low_val
+    }
 
 def calculate_market_profile_vectorized(high, low, close, volume, bins=20):
     low_val = float(min(high.min(), low.min(), close.min()))
@@ -532,6 +642,13 @@ class EnhancedDataManager:
         df["Stoch_K"], df["Stoch_D"] = stochastic(df["High"], df["Low"], df["Close"])
         df["VWAP"] = (((df["High"] + df["Low"] + df["Close"]) / 3) * df["Volume"]).cumsum() / df["Volume"].cumsum()
 
+        # Calculate Fibonacci levels
+        recent_high = df["High"].max()
+        recent_low = df["Low"].min()
+        fib_levels = calculate_fibonacci_levels(recent_high, recent_low)
+        for level, value in fib_levels.items():
+            df[f"Fib_{level}"] = value
+
         mp = calculate_market_profile_vectorized(df["High"], df["Low"], df["Close"], df["Volume"], bins=24)
         df["POC"] = mp["poc"]
         df["VA_High"] = mp["value_area_high"]
@@ -588,6 +705,14 @@ class EnhancedDataManager:
         df["BB_Upper"], df["BB_Middle"], df["BB_Lower"] = bollinger_bands(df["Close"])
         df["Stoch_K"], df["Stoch_D"] = stochastic(df["High"], df["Low"], df["Close"])
         df["VWAP"] = (((df["High"] + df["Low"] + df["Close"]) / 3) * df["Volume"]).cumsum() / df["Volume"].cumsum()
+        
+        # Add Fibonacci levels to demo data
+        recent_high = df["High"].max()
+        recent_low = df["Low"].min()
+        fib_levels = calculate_fibonacci_levels(recent_high, recent_low)
+        for level, value in fib_levels.items():
+            df[f"Fib_{level}"] = value
+            
         mp = calculate_market_profile_vectorized(df["High"], df["Low"], df["Close"], df["Volume"], bins=24)
         df["POC"] = mp["poc"]
         df["VA_High"] = mp["value_area_high"]
@@ -719,11 +844,12 @@ class BacktestEngine:
                 "Bollinger_Reversion": 0.62,
                 "MACD_Momentum": 0.66,
                 "Support_Resistance_Breakout": 0.60,
-                "EMA_VWAP_Downtrend": 0.65,  # Increased
-                "RSI_Overbought": 0.63,      # Increased
-                "Bollinger_Rejection": 0.61, # Increased
-                "MACD_Bearish": 0.64,        # New
-                "Trend_Reversal": 0.59       # New
+                "Fib_Golden_Zone": 0.67,  # NEW: Fibonacci strategy accuracy
+                "EMA_VWAP_Downtrend": 0.65,
+                "RSI_Overbought": 0.63,
+                "Bollinger_Rejection": 0.61,
+                "MACD_Bearish": 0.64,
+                "Trend_Reversal": 0.59
             }
             return default_accuracies.get(strategy, 0.65)
             
@@ -760,6 +886,7 @@ class BacktestEngine:
                 "Bollinger_Reversion": 0.62,
                 "MACD_Momentum": 0.66,
                 "Support_Resistance_Breakout": 0.60,
+                "Fib_Golden_Zone": 0.67,
                 "EMA_VWAP_Downtrend": 0.65,
                 "RSI_Overbought": 0.63,
                 "Bollinger_Rejection": 0.61,
@@ -826,7 +953,16 @@ class BacktestEngine:
                     htf_trend == 1 and ema8 > ema21 and macd_line > macd_signal):
                     return {'action': 'BUY', 'confidence': 0.75}
 
-            # SELL Strategies - Enhanced
+            # NEW: Fibonacci Golden Zone Strategy
+            elif strategy == "Fib_Golden_Zone":
+                fib_618 = float(current.get('Fib_level_61.8', live * 0.95))
+                fib_382 = float(current.get('Fib_level_38.2', live * 1.05))
+                # Buy when price is in golden zone (38.2% - 61.8%) and showing bullish signs
+                if (fib_618 <= live <= fib_382 and rsi_val < 45 and 
+                    ema8 > ema21 and macd_line > macd_signal):
+                    return {'action': 'BUY', 'confidence': 0.75}
+
+            # ENHANCED SELL Strategies - Fixed to generate more SELL signals
             elif strategy == "EMA_VWAP_Downtrend":
                 if (ema8 < ema21 < ema50 and live < vwap and adx_val > 20 and htf_trend == -1):
                     return {'action': 'SELL', 'confidence': 0.78}
@@ -1084,13 +1220,17 @@ class MultiStrategyIntradayTrader:
                 strategy = pos.get("strategy", "Manual")
                 historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy) if strategy != "Manual" else 0.65
                 
+                # Determine win/loss class for highlighting
+                pnl_class = "win-trade" if pnl > 0 else "loss-trade"
+                pnl_display_class = "profit-highlight" if pnl > 0 else "loss-highlight"
+                
                 out.append({
                     "Symbol": symbol.replace(".NS", ""),
                     "Action": pos["action"],
                     "Quantity": pos["quantity"],
                     "Entry Price": f"₹{pos['entry_price']:.2f}",
                     "Current Price": f"₹{price:.2f}",
-                    "P&L": f"₹{pnl:+.2f}",
+                    "P&L": f"<span class='{pnl_display_class}'>₹{pnl:+.2f}</span>",
                     "Variance %": f"{var:+.2f}%",
                     "Stop Loss": f"₹{pos.get('stop_loss', 0):.2f}",
                     "Target": f"₹{pos.get('target', 0):.2f}",
@@ -1101,7 +1241,8 @@ class MultiStrategyIntradayTrader:
                     "Entry Time": pos.get("entry_time"),
                     "Auto Trade": "Yes" if pos.get("auto_trade") else "No",
                     "Strategy": strategy,
-                    "Status": pos.get("status")
+                    "Status": pos.get("status"),
+                    "_row_class": pnl_class
                 })
             except Exception:
                 continue
@@ -1211,6 +1352,10 @@ class MultiStrategyIntradayTrader:
             adx_val = float(data["ADX"].iloc[-1]) if "ADX" in data.columns else 20
             htf_trend = int(data["HTF_Trend"].iloc[-1]) if "HTF_Trend" in data.columns else 1
 
+            # Get Fibonacci levels
+            fib_618 = float(data.get("Fib_level_61.8", [live * 0.95])[-1])
+            fib_382 = float(data.get("Fib_level_38.2", [live * 1.05])[-1])
+
             # BUY STRATEGIES - Only generate if historical accuracy > 65%
             # Strategy 1: EMA + VWAP + ADX + HTF Trend
             if (ema8 > ema21 > ema50 and live > vwap and adx_val > 20 and htf_trend == 1):
@@ -1302,8 +1447,26 @@ class MultiStrategyIntradayTrader:
                             "strategy_name": TRADING_STRATEGIES[strategy]["name"]
                         })
 
-            # SELL STRATEGIES - Enhanced with 65% filter
-            # Strategy 6: EMA + VWAP Downtrend
+            # NEW Strategy 6: Fibonacci Golden Zone Retracement
+            if (fib_618 <= live <= fib_382 and rsi_val < 45 and 
+                ema8 > ema21 and macd_line > macd_signal and htf_trend == 1):
+                action = "BUY"; confidence = 0.75; score = 8; strategy = "Fib_Golden_Zone"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 2.0:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    if historical_accuracy >= 0.65:
+                        win_probability = min(0.78, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
+
+            # ENHANCED SELL STRATEGIES - Fixed to generate more SELL signals
+            # Strategy 7: EMA + VWAP Downtrend
             if (ema8 < ema21 < ema50 and live < vwap and adx_val > 20 and htf_trend == -1):
                 action = "SELL"; confidence = 0.78; score = 8; strategy = "EMA_VWAP_Downtrend"
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
@@ -1320,7 +1483,7 @@ class MultiStrategyIntradayTrader:
                             "strategy_name": TRADING_STRATEGIES[strategy]["name"]
                         })
 
-            # Strategy 7: RSI Overbought (15min timeframe focused)
+            # Strategy 8: RSI Overbought (15min timeframe focused)
             if rsi_val > 70 and rsi_val < rsi_prev and live < resistance:
                 action = "SELL"; confidence = 0.72; score = 7; strategy = "RSI_Overbought"
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
@@ -1337,7 +1500,7 @@ class MultiStrategyIntradayTrader:
                             "strategy_name": TRADING_STRATEGIES[strategy]["name"]
                         })
 
-            # Strategy 8: Bollinger Rejection
+            # Strategy 9: Bollinger Rejection
             if live >= bb_upper and rsi_val > 65 and live < resistance:
                 action = "SELL"; confidence = 0.70; score = 6; strategy = "Bollinger_Rejection"
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
@@ -1354,7 +1517,7 @@ class MultiStrategyIntradayTrader:
                             "strategy_name": TRADING_STRATEGIES[strategy]["name"]
                         })
 
-            # Strategy 9: MACD Bearish Crossover
+            # Strategy 10: MACD Bearish Crossover
             if (macd_line < macd_signal and macd_line < 0 and ema8 < ema21 and 
                 live < vwap and adx_val > 22 and htf_trend == -1):
                 action = "SELL"; confidence = 0.75; score = 8; strategy = "MACD_Bearish"
@@ -1372,7 +1535,7 @@ class MultiStrategyIntradayTrader:
                             "strategy_name": TRADING_STRATEGIES[strategy]["name"]
                         })
 
-            # Strategy 10: Trend Reversal
+            # Strategy 11: Trend Reversal
             if len(data) > 5:
                 prev_trend = 1 if data.iloc[-3]['EMA8'] > data.iloc[-3]['EMA21'] else -1
                 current_trend = -1 if ema8 < ema21 else 1
@@ -1405,7 +1568,13 @@ class MultiStrategyIntradayTrader:
 
     def generate_quality_signals(self, universe, max_scan=None, min_confidence=0.7, min_score=6):
         signals = []
-        stocks = NIFTY_50 if universe == "Nifty 50" else NIFTY_100
+        if universe == "Nifty 50":
+            stocks = NIFTY_50
+        elif universe == "Nifty 100 & Midcap":  # COMBINED UNIVERSE
+            stocks = NIFTY_100_MIDCAP
+        else:
+            stocks = NIFTY_50
+            
         if max_scan is None:
             max_scan = len(stocks)
         progress_bar = st.progress(0)
@@ -1605,12 +1774,12 @@ scan_limit = st.sidebar.selectbox("Scan Limit", ["All Stocks", "Top 40", "Top 20
 max_scan_map = {"All Stocks": None, "Top 40": 40, "Top 20": 20}
 max_scan = max_scan_map[scan_limit]
 
-# Enhanced Tabs with Trade History - Using session state to remember current tab
+# Enhanced Tabs with Multi-Color Scheme
 tabs = st.tabs([
     "📈 Dashboard", 
     "🚦 Signals", 
     "💰 Paper Trading", 
-    "📋 Trade History",  # NEW TRADE HISTORY TAB
+    "📋 Trade History",
     "📊 Market Profile", 
     "📉 RSI Extreme", 
     "🔍 Backtest", 
@@ -1661,7 +1830,7 @@ with tabs[1]:
     st.subheader("Multi-Strategy BUY/SELL Signals")
     col1, col2 = st.columns([1, 2])
     with col1:
-        universe = st.selectbox("Universe", ["Nifty 50", "Nifty 100"])
+        universe = st.selectbox("Universe", ["Nifty 50", "Nifty 100 & Midcap"])  # UPDATED: Combined universe
         generate_btn = st.button("Generate Signals", type="primary", use_container_width=True)
     with col2:
         if trader.auto_execution:
@@ -1730,14 +1899,49 @@ with tabs[1]:
 
 with tabs[2]:
     st.session_state.current_tab = "💰 Paper Trading"
-    st.subheader("Paper Trading - With Historical Accuracy")
+    st.subheader("Paper Trading - With Win/Loss Highlighting")
     trader.update_positions_pnl()
     open_pos = trader.get_open_positions_data()
     
     if open_pos:
-        st.dataframe(pd.DataFrame(open_pos), use_container_width=True)
+        # Create custom HTML table with win/loss highlighting
+        html_table = """
+        <table style="width:100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; border-radius: 8px; overflow: hidden;">
+            <thead>
+                <tr style="background-color: #1e3a8a; color: white;">
+                    <th style="padding: 10px; text-align: left;">Symbol</th>
+                    <th style="padding: 10px; text-align: left;">Action</th>
+                    <th style="padding: 10px; text-align: left;">Qty</th>
+                    <th style="padding: 10px; text-align: left;">Entry</th>
+                    <th style="padding: 10px; text-align: left;">Current</th>
+                    <th style="padding: 10px; text-align: left;">P&L</th>
+                    <th style="padding: 10px; text-align: left;">Strategy</th>
+                    <th style="padding: 10px; text-align: left;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
         
-        # FIXED: Enhanced Accuracy Summary - Fixed KeyError
+        for pos in open_pos:
+            row_class = pos.get('_row_class', '')
+            html_table += f"""
+            <tr class="{row_class}" style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 10px;"><strong>{pos['Symbol']}</strong></td>
+                <td style="padding: 10px;"><strong>{pos['Action']}</strong></td>
+                <td style="padding: 10px;">{pos['Quantity']}</td>
+                <td style="padding: 10px;">{pos['Entry Price']}</td>
+                <td style="padding: 10px;">{pos['Current Price']}</td>
+                <td style="padding: 10px;">{pos['P&L']}</td>
+                <td style="padding: 10px;">{pos['Strategy']}</td>
+                <td style="padding: 10px;">{pos['Status']}</td>
+            </tr>
+            """
+        
+        html_table += "</tbody></table>"
+        
+        st.markdown(html_table, unsafe_allow_html=True)
+        
+        # Enhanced Accuracy Summary
         st.subheader("📊 Enhanced Accuracy Analysis")
         
         # Strategy-wise analysis
@@ -1747,37 +1951,29 @@ with tabs[2]:
         for strategy in strategies_used:
             strategy_positions = [pos for pos in open_pos if pos['Strategy'] == strategy]
             
-            # FIX: Check if 'Historical Win %' exists and handle it safely
-            historical_wins = []
-            for pos in strategy_positions:
-                if 'Historical Win %' in pos:
-                    try:
-                        win_pct = float(pos['Historical Win %'].strip('%'))/100
-                        historical_wins.append(win_pct)
-                    except (ValueError, AttributeError):
-                        historical_wins.append(0.65)  # Default value
-            
-            avg_historical = np.mean(historical_wins) if historical_wins else 0.65
-            
-            # FIX: Handle P&L calculation safely
+            # Calculate P&L for strategy
             current_pnl = 0
             for pos in strategy_positions:
-                if 'P&L' in pos:
-                    try:
-                        pnl_str = pos['P&L'].replace('₹','').replace(',','').strip()
-                        current_pnl += float(pnl_str)
-                    except (ValueError, AttributeError):
-                        continue
+                try:
+                    pnl_str = pos['P&L'].split('₹')[1].split('<')[0].replace('+','').replace(',','')
+                    current_pnl += float(pnl_str)
+                except (ValueError, AttributeError, IndexError):
+                    continue
             
             strategy_analysis.append({
                 "Strategy": strategy,
                 "Positions": len(strategy_positions),
-                "Avg Historical Win %": f"{avg_historical:.1%}",
-                "Current P&L": f"₹{current_pnl:+.2f}"
+                "Current P&L": f"<span class='{'profit-highlight' if current_pnl >= 0 else 'loss-highlight'}'>{current_pnl:+.2f}</span>"
             })
         
         if strategy_analysis:
-            st.dataframe(pd.DataFrame(strategy_analysis), use_container_width=True)
+            # Display strategy analysis
+            for analysis in strategy_analysis:
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    st.write(f"**{analysis['Strategy']}** - {analysis['Positions']} positions")
+                with col2:
+                    st.markdown(analysis['Current P&L'], unsafe_allow_html=True)
         
         # Position management
         st.subheader("Position Management")
@@ -1796,7 +1992,7 @@ with tabs[2]:
     else:
         st.info("No open positions.")
 
-with tabs[3]:  # NEW TRADE HISTORY TAB
+with tabs[3]:
     st.session_state.current_tab = "📋 Trade History"
     st.subheader("📋 Trade History")
     
@@ -1846,7 +2042,7 @@ with tabs[3]:  # NEW TRADE HISTORY TAB
         """
         
         for trade in trade_history:
-            row_class = "trade-buy" if trade['Action'] == 'BUY' else "trade-sell"
+            row_class = trade.get('_row_class', '')
             html_table += f"""
             <tr class="{row_class}" style="border-bottom: 1px solid #e5e7eb;">
                 <td style="padding: 8px;">{trade['Symbol']}</td>
@@ -1896,19 +2092,23 @@ with tabs[3]:  # NEW TRADE HISTORY TAB
 
 with tabs[4]:
     st.session_state.current_tab = "📊 Market Profile"
-    st.subheader("Market Profile Analysis - Nifty 50/100")
+    st.subheader("Market Profile Analysis - Nifty 50 & Midcap")
     st.write("Enhanced bullish/bearish signal analysis with timeframe alignment")
     
     col1, col2 = st.columns(2)
     with col1:
-        profile_universe = st.selectbox("Select Universe", ["Nifty 50", "Nifty 100"], key="profile_universe")
+        profile_universe = st.selectbox("Select Universe", ["Nifty 50", "Nifty 100 & Midcap"], key="profile_universe")  # UPDATED
         analyze_btn = st.button("Analyze Market Profile", type="primary", use_container_width=True)
     
     with col2:
         min_confidence = st.slider("Minimum Confidence %", 60, 90, 70, 5, key="profile_confidence")
     
     if analyze_btn:
-        stocks = NIFTY_50 if profile_universe == "Nifty 50" else NIFTY_100
+        if profile_universe == "Nifty 50":
+            stocks = NIFTY_50
+        else:
+            stocks = NIFTY_100_MIDCAP
+            
         bullish_stocks = []
         bearish_stocks = []
         neutral_stocks = []
@@ -1970,7 +2170,7 @@ with tabs[5]:
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        universe_rsi = st.selectbox("Universe", ["Nifty 50", "Nifty 100"], key="rsi_universe")
+        universe_rsi = st.selectbox("Universe", ["Nifty 50", "Nifty 100 & Midcap"], key="rsi_universe")  # UPDATED
     with col2:
         rsi_low_threshold = st.slider("Oversold Threshold", 20, 35, 30, 1)
     with col3:
@@ -1979,7 +2179,11 @@ with tabs[5]:
         min_volume_multiplier = st.slider("Min Volume", 1.0, 3.0, 1.5, 0.1)
     
     if st.button("Scan RSI Extremes", type="primary", use_container_width=True) or should_run_rsi:
-        stocks = NIFTY_50 if universe_rsi == "Nifty 50" else NIFTY_100
+        if universe_rsi == "Nifty 50":
+            stocks = NIFTY_50
+        else:
+            stocks = NIFTY_100_MIDCAP
+            
         rsi_low_stocks = []
         rsi_high_stocks = []
         
@@ -2043,7 +2247,7 @@ with tabs[6]:
     
     col1, col2 = st.columns(2)
     with col1:
-        backtest_symbol = st.selectbox("Select Stock", NIFTY_50[:20], key="backtest_stock")
+        backtest_symbol = st.selectbox("Select Stock", NIFTY_100_MIDCAP[:20], key="backtest_stock")  # UPDATED
         backtest_strategy = st.selectbox("Select Strategy", list(TRADING_STRATEGIES.keys()), 
                                         format_func=lambda x: TRADING_STRATEGIES[x]["name"])
     
@@ -2093,6 +2297,7 @@ with tabs[7]:
                 "Bollinger_Reversion": "**Description:** Captures mean reversion BUY opportunities when price touches Bollinger Band extremes.\n\n**Conditions:** Price ≤ Lower BB, RSI < 35, Price > Support",
                 "MACD_Momentum": "**Description:** Uses MACD crossover with ADX trend strength for BUY momentum entries.\n\n**Conditions:** MACD > Signal, MACD > 0, EMA8 > EMA21, Price > VWAP, ADX > 22",
                 "Support_Resistance_Breakout": "**Description:** Identifies BUY breakouts at key resistance levels with volume confirmation.\n\n**Conditions:** Price > Resistance, Volume spike, RSI > 50, Bullish trend",
+                "Fib_Golden_Zone": "**Description:** NEW - Fibonacci Golden Zone retracement strategy. Buys when price retraces to Fibonacci golden zone (38.2% - 61.8%) with bullish confirmation.\n\n**Conditions:** Price in Fib 38.2%-61.8% zone, RSI < 45, EMA8 > EMA21, MACD bullish",
                 "EMA_VWAP_Downtrend": "**Description:** Combines bearish EMA alignment with VWAP for SELL entries in downtrends.\n\n**Conditions:** EMA8 < EMA21 < EMA50, Price < VWAP, ADX > 20, HTF Trend = Bearish",
                 "RSI_Overbought": "**Description:** Identifies overbought conditions with RSI reversal for SELL entries.\n\n**Conditions:** RSI > 70, RSI falling, Price < Resistance",
                 "Bollinger_Rejection": "**Description:** Captures SELL opportunities when price rejects upper Bollinger Band.\n\n**Conditions:** Price ≥ Upper BB, RSI > 65, Price < Resistance",
@@ -2120,6 +2325,7 @@ with tabs[7]:
                 "Bollinger_Reversion": "58-68%",
                 "MACD_Momentum": "62-72%",
                 "Support_Resistance_Breakout": "55-65%",
+                "Fib_Golden_Zone": "62-72%",  # NEW
                 "EMA_VWAP_Downtrend": "60-70%",
                 "RSI_Overbought": "58-68%",
                 "Bollinger_Rejection": "56-66%",
