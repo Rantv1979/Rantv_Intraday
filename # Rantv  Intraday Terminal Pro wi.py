@@ -1209,7 +1209,7 @@ class MultiStrategyIntradayTrader:
         return True, f"Closed {symbol} @ ₹{exit_price:.2f} | P&L: ₹{pnl:+.2f}"
 
     def get_open_positions_data(self):
-    self.update_positions_pnl()
+    self.update_positions_pnl()  # This line should be indented properly
     out = []
     for symbol, pos in self.positions.items():
         if pos.get("status") != "OPEN":
@@ -2355,4 +2355,5 @@ with tabs[7]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
 
