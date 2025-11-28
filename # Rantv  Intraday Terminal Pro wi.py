@@ -14,7 +14,7 @@ from streamlit_autorefresh import st_autorefresh
 st.set_page_config(page_title="Rantv Intraday Terminal Pro - Enhanced", layout="wide", initial_sidebar_state="expanded")
 IND_TZ = pytz.timezone("Asia/Kolkata")
 
-CAPITAL = 2_000_000.0
+CAPITAL = 1_000_000.0
 TRADE_ALLOC = 0.15
 MAX_DAILY_TRADES = 10
 MAX_STOCK_TRADES = 10
@@ -1467,7 +1467,7 @@ if "current_tab" not in st.session_state:
 st.session_state.refresh_count += 1
 
 # Enhanced UI with Circular Market Mood Gauges
-st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Rantv Intraday Terminal Pro BUY/SELL Signals</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Rantv Intraday Terminal Pro</h1>", unsafe_allow_html=True)
 st_autorefresh(interval=PRICE_REFRESH_MS, key="price_refresh_improved")
 
 cols = st.columns(7)
@@ -2130,3 +2130,4 @@ with tabs[7]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
