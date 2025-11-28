@@ -1262,6 +1262,7 @@ class MultiStrategyIntradayTrader:
         except Exception:
             continue
     return out
+   
     def get_trade_history_data(self):
         """Get formatted trade history data for display"""
         history_data = []
@@ -2354,6 +2355,7 @@ with tabs[7]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
 
 
 
