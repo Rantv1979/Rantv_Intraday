@@ -39,12 +39,12 @@ NIFTY_50 = [
 ]
 
 NIFTY_MIDCAP_100 = [
-    "ADANIGREEN.NS", "ADANITRANS.NS", "ABCAPITAL.NS", "ABFRL.NS", "AUBANK.NS",
+    "ADANIGREEN.NS", "ABCAPITAL.NS", "ABFRL.NS", "AUBANK.NS",
     "ASTRAL.NS", "BAJAJELEC.NS", "BALKRISIND.NS", "BANDHANBNK.NS", "BANKBARODA.NS",
     "BATAINDIA.NS", "BEL.NS", "BHARATFORG.NS", "BHEL.NS", "BIOCON.NS",
     "BOSCHLTD.NS", "CANBK.NS", "CHOLAFIN.NS", "CIPLA.NS", "COALINDIA.NS",
     "COFORGE.NS", "COLPAL.NS", "CONCOR.NS", "CUMMINSIND.NS", "DABUR.NS",
-    "DALBHARAT.NS", "DEEPAKNTR.NS", "DHANI.NS", "DIVISLAB.NS", "DLF.NS",
+    "DALBHARAT.NS", "DEEPAKNTR.NS", "DIVISLAB.NS", "DLF.NS",
     "DRREDDY.NS", "EICHERMOT.NS", "ESCORTS.NS", "EXIDEIND.NS", "FEDERALBNK.NS",
     "GAIL.NS", "GLENMARK.NS", "GODREJCP.NS", "GODREJPROP.NS", "GRASIM.NS",
     "GUJGASLTD.NS", "HAL.NS", "HAVELLS.NS", "HDFCAMC.NS", "HDFCLIFE.NS",
@@ -53,18 +53,25 @@ NIFTY_MIDCAP_100 = [
     "INDUSINDBK.NS", "INDUSTOWER.NS", "INFY.NS", "IOC.NS", "JINDALSTEL.NS",
     "JSWENERGY.NS", "JUBLFOOD.NS", "KOTAKBANK.NS", "LALPATHLAB.NS", "LICHSGFIN.NS",
     "LT.NS", "LTTS.NS", "LUPIN.NS", "M&M.NS", "M&MFIN.NS",
-    "MANAPPURAM.NS", "MARICO.NS", "MARUTI.NS", "MCDOWELL-N.NS", "MFSL.NS",
+    "MANAPPURAM.NS", "MARICO.NS", "MARUTI.NS", "MFSL.NS",
     "MGL.NS", "MOTHERSON.NS", "MPHASIS.NS", "MRF.NS", "MUTHOOTFIN.NS",
     "NATIONALUM.NS", "NAUKRI.NS", "NAVINFLUOR.NS", "NESTLEIND.NS", "NMDC.NS",
-    "NTPC.NS", "OFSS.NS", "PAGEIND.NS", "PEL.NS", "PERSISTENT.NS",
+    "NTPC.NS", "OFSS.NS", "PAGEIND.NS", "PERSISTENT.NS",
     "PETRONET.NS", "PFC.NS", "PIDILITIND.NS", "PIIND.NS", "PNB.NS",
     "POWERGRID.NS", "RECLTD.NS", "RELIANCE.NS", "SAIL.NS", "SBICARD.NS",
     "SBILIFE.NS", "SBIN.NS", "SHREECEM.NS", "SIEMENS.NS", "SRF.NS",
-    "SRTRANSFIN.NS", "SUNPHARMA.NS", "SUNTV.NS", "TATACHEM.NS", "TATACONSUM.NS",
+    "SUNPHARMA.NS", "SUNTV.NS", "TATACHEM.NS", "TATACONSUM.NS",
     "TATAMOTORS.NS", "TATAPOWER.NS", "TATASTEEL.NS", "TCS.NS", "TECHM.NS",
     "TITAN.NS", "TORNTPHARM.NS", "TRENT.NS", "ULTRACEMCO.NS", "UPL.NS",
     "VOLTAS.NS", "WIPRO.NS", "YESBANK.NS", "ZEEL.NS"
 ]
+
+# Remove delisted stocks from the lists
+DELISTED_STOCKS = ['PEL.NS', 'SRTRANSFIN.NS', 'ADANITRANS.NS', 'DHANI.NS', 'MCDOWELL-N.NS']
+
+# Filter out delisted stocks
+NIFTY_50 = [stock for stock in NIFTY_50 if stock not in DELISTED_STOCKS]
+NIFTY_MIDCAP_100 = [stock for stock in NIFTY_MIDCAP_100 if stock not in DELISTED_STOCKS]
 
 # Combine Nifty 100 & Midcap into one universe
 NIFTY_100_MIDCAP = NIFTY_50 + NIFTY_MIDCAP_100
@@ -1352,9 +1359,9 @@ class MultiStrategyIntradayTrader:
             adx_val = float(data["ADX"].iloc[-1]) if "ADX" in data.columns else 20
             htf_trend = int(data["HTF_Trend"].iloc[-1]) if "HTF_Trend" in data.columns else 1
 
-            # Get Fibonacci levels
-            fib_618 = float(data.get("Fib_level_61.8", [live * 0.95])[-1])
-            fib_382 = float(data.get("Fib_level_38.2", [live * 1.05])[-1])
+            # Get Fibonacci levels - FIXED: Use .iloc[-1] instead of [-1]
+            fib_618 = float(data["Fib_level_61.8"].iloc[-1]) if "Fib_level_61.8" in data.columns else live * 0.95
+            fib_382 = float(data["Fib_level_38.2"].iloc[-1]) if "Fib_level_38.2" in data.columns else live * 1.05
 
             # BUY STRATEGIES - Only generate if historical accuracy > 65%
             # Strategy 1: EMA + VWAP + ADX + HTF Trend
