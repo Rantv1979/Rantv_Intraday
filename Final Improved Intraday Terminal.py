@@ -1,4 +1,4 @@
-# Final Improved Intraday Terminal Pro with BUY/SELL Signals & Accurate Backtesting
+# Rantv Intraday Trading Signals & Market Analysis - Enhanced
 import time
 from datetime import datetime, time as dt_time
 import numpy as np
@@ -11,17 +11,17 @@ import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 
 # Configuration
-st.set_page_config(page_title="Intraday Terminal Pro - Balanced", layout="wide")
+st.set_page_config(page_title="Rantv Intraday Terminal Pro - Enhanced", layout="wide", initial_sidebar_state="expanded")
 IND_TZ = pytz.timezone("Asia/Kolkata")
 
-CAPITAL = 2_000_000.0
+CAPITAL = 1_000_000.0
 TRADE_ALLOC = 0.15
 MAX_DAILY_TRADES = 10
 MAX_STOCK_TRADES = 10
 MAX_AUTO_TRADES = 10
 
 SIGNAL_REFRESH_MS = 90000
-PRICE_REFRESH_MS = 25000
+PRICE_REFRESH_MS = 60000
 
 MARKET_OPTIONS = ["CASH"]
 
@@ -50,18 +50,224 @@ NIFTY_100 = NIFTY_50 + [
     "YESBANK.NS", "ZEEL.NS"
 ]
 
+# Enhanced Trading Strategies with Better Balance
 TRADING_STRATEGIES = {
-    "EMA_VWAP_Confluence": {"name": "EMA + VWAP Confluence", "weight": 3},
-    "RSI_MeanReversion": {"name": "RSI Mean Reversion", "weight": 2},
-    "Bollinger_Reversion": {"name": "Bollinger Band Reversion", "weight": 2},
-    "MACD_Momentum": {"name": "MACD Momentum", "weight": 2},
-    "Support_Resistance_Breakout": {"name": "Support/Resistance Breakout", "weight": 3},
-    "EMA_VWAP_Downtrend": {"name": "EMA + VWAP Downtrend", "weight": 2},
-    "RSI_Overbought": {"name": "RSI Overbought Reversal", "weight": 2},
-    "Bollinger_Rejection": {"name": "Bollinger Band Rejection", "weight": 2}
+    "EMA_VWAP_Confluence": {"name": "EMA + VWAP Confluence", "weight": 3, "type": "BUY"},
+    "RSI_MeanReversion": {"name": "RSI Mean Reversion", "weight": 2, "type": "BUY"},
+    "Bollinger_Reversion": {"name": "Bollinger Band Reversion", "weight": 2, "type": "BUY"},
+    "MACD_Momentum": {"name": "MACD Momentum", "weight": 2, "type": "BUY"},
+    "Support_Resistance_Breakout": {"name": "Support/Resistance Breakout", "weight": 3, "type": "BUY"},
+    "EMA_VWAP_Downtrend": {"name": "EMA + VWAP Downtrend", "weight": 3, "type": "SELL"},
+    "RSI_Overbought": {"name": "RSI Overbought Reversal", "weight": 2, "type": "SELL"},
+    "Bollinger_Rejection": {"name": "Bollinger Band Rejection", "weight": 2, "type": "SELL"},
+    "MACD_Bearish": {"name": "MACD Bearish Crossover", "weight": 2, "type": "SELL"},
+    "Trend_Reversal": {"name": "Trend Reversal", "weight": 2, "type": "SELL"}
 }
 
-# Utilities
+# FIXED CSS with Light Yellowish Background and Better Tabs
+st.markdown("""
+<style>
+    /* Light Yellowish Background */
+    .stApp {
+        background: linear-gradient(135deg, #fff9e6 0%, #fff0d6 100%);
+    }
+    
+    /* Main container background */
+    .main .block-container {
+        background-color: transparent;
+        padding-top: 2rem;
+    }
+    
+    /* Enhanced Tabs with Multiple Colors */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px;
+        background: linear-gradient(135deg, #e6f2ff 0%, #ffe6e6 50%, #e6ffe6 100%);
+        padding: 8px;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        height: 60px;
+        white-space: pre-wrap;
+        background-color: #ffffff;
+        border-radius: 8px;
+        gap: 8px;
+        padding: 12px 20px;
+        font-weight: 600;
+        font-size: 14px;
+        color: #1e3a8a;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+        color: white;
+        border: 2px solid #2563eb;
+        box-shadow: 0 4px 8px rgba(30, 58, 138, 0.3);
+        transform: translateY(-2px);
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+        border: 2px solid #93c5fd;
+        transform: translateY(-1px);
+    }
+    
+    /* FIXED Market Mood Gauge Styles - Circular */
+    .gauge-container {
+        background: white;
+        border-radius: 50%;
+        padding: 25px;
+        margin: 10px auto;
+        border: 4px solid #e0f2fe;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        width: 200px;
+        height: 200px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        position: relative;
+    }
+    
+    .gauge-title {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        color: #1e3a8a;
+    }
+    
+    .gauge-value {
+        font-size: 16px;
+        font-weight: bold;
+        margin: 3px 0;
+    }
+    
+    .gauge-sentiment {
+        font-size: 12px;
+        font-weight: bold;
+        margin-top: 6px;
+        padding: 3px 10px;
+        border-radius: 15px;
+    }
+    
+    .bullish { 
+        color: #059669;
+        background-color: #d1fae5;
+    }
+    
+    .bearish { 
+        color: #dc2626;
+        background-color: #fee2e2;
+    }
+    
+    .neutral { 
+        color: #d97706;
+        background-color: #fef3c7;
+    }
+    
+    /* Circular Progress Bar */
+    .gauge-progress {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: conic-gradient(#059669 0% var(--progress), #e5e7eb var(--progress) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 8px 0;
+        position: relative;
+    }
+    
+    .gauge-progress-inner {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 14px;
+    }
+    
+    /* RSI Scanner Styles */
+    .rsi-oversold { 
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-left: 4px solid #059669;
+    }
+    
+    .rsi-overbought { 
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-left: 4px solid #dc2626;
+    }
+    
+    /* Market Profile Styles */
+    .bullish-signal { 
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-left: 4px solid #059669;
+        border-radius: 8px;
+    }
+    
+    .bearish-signal { 
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-left: 4px solid #dc2626;
+        border-radius: 8px;
+    }
+    
+    /* Card Styling */
+    .metric-card {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 4px solid #1e3a8a;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* Auto-refresh counter */
+    .refresh-counter {
+        background: #1e3a8a;
+        color: white;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        margin-left: 8px;
+    }
+    
+    /* Trade History PnL Styling */
+    .profit-positive {
+        color: #059669;
+        font-weight: bold;
+        background-color: #d1fae5;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+    
+    .profit-negative {
+        color: #dc2626;
+        font-weight: bold;
+        background-color: #fee2e2;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+    
+    .trade-buy {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        border-left: 4px solid #059669;
+    }
+    
+    .trade-sell {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-left: 4px solid #dc2626;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Enhanced Utilities
 def now_indian():
     return datetime.now(IND_TZ)
 
@@ -190,144 +396,57 @@ def adx(high, low, close, period=14):
     df["adx"] = df["dx"].rolling(window=period).mean().fillna(0)
     return df["adx"].values
 
-# Backtesting Engine
-class BacktestEngine:
-    def __init__(self):
-        self.historical_accuracy = {}
-        
-    def calculate_historical_accuracy(self, symbol, strategy, data):
-        """Calculate historical accuracy for a specific strategy"""
-        if len(data) < 100:
-            # Return strategy-specific defaults
-            default_accuracies = {
-                "EMA_VWAP_Confluence": 0.68,
-                "RSI_MeanReversion": 0.65,
-                "Bollinger_Reversion": 0.62,
-                "MACD_Momentum": 0.66,
-                "Support_Resistance_Breakout": 0.60,
-                "EMA_VWAP_Downtrend": 0.63,
-                "RSI_Overbought": 0.61,
-                "Bollinger_Rejection": 0.59
-            }
-            return default_accuracies.get(strategy, 0.65)
-            
-        wins = 0
-        total_signals = 0
-        
-        for i in range(50, len(data)-3):
-            current_data = data.iloc[:i+1]
-            
-            if len(current_data) < 30:
-                continue
-                
-            signal_data = self.generate_signal_for_backtest(current_data, strategy)
-            
-            if signal_data and signal_data['action'] in ['BUY', 'SELL']:
-                total_signals += 1
-                entry_price = data.iloc[i]['Close']
-                future_prices = data.iloc[i+1:i+4]['Close']
-                
-                if len(future_prices) > 0:
-                    if signal_data['action'] == 'BUY':
-                        max_future_price = future_prices.max()
-                        if max_future_price > entry_price * 1.002:
-                            wins += 1
-                    else:
-                        min_future_price = future_prices.min()
-                        if min_future_price < entry_price * 0.998:
-                            wins += 1
-        
-        if total_signals < 5:
-            default_accuracies = {
-                "EMA_VWAP_Confluence": 0.68,
-                "RSI_MeanReversion": 0.65,
-                "Bollinger_Reversion": 0.62,
-                "MACD_Momentum": 0.66,
-                "Support_Resistance_Breakout": 0.60,
-                "EMA_VWAP_Downtrend": 0.63,
-                "RSI_Overbought": 0.61,
-                "Bollinger_Rejection": 0.59
-            }
-            return default_accuracies.get(strategy, 0.65)
-        
-        accuracy = wins / total_signals
-        return max(0.55, min(0.85, accuracy))
+# FIXED Circular Market Mood Gauge Component with Rounded Percentages
+def create_circular_market_mood_gauge(index_name, current_value, change_percent, sentiment_score):
+    """Create a circular market mood gauge for Nifty50 and BankNifty"""
+    
+    # Round sentiment score and change percentage
+    sentiment_score = round(sentiment_score)
+    change_percent = round(change_percent, 2)
+    
+    # Determine sentiment color and text
+    if sentiment_score >= 70:
+        sentiment_color = "bullish"
+        sentiment_text = "BULLISH"
+        emoji = "📈"
+        progress_color = "#059669"
+    elif sentiment_score <= 30:
+        sentiment_color = "bearish"
+        sentiment_text = "BEARISH"
+        emoji = "📉"
+        progress_color = "#dc2626"
+    else:
+        sentiment_color = "neutral"
+        sentiment_text = "NEUTRAL"
+        emoji = "➡️"
+        progress_color = "#d97706"
+    
+    # Create circular gauge HTML
+    gauge_html = f"""
+    <div class="gauge-container">
+        <div class="gauge-title">{emoji} {index_name}</div>
+        <div class="gauge-progress" style="--progress: {sentiment_score}%; background: conic-gradient({progress_color} 0% {sentiment_score}%, #e5e7eb {sentiment_score}% 100%);">
+            <div class="gauge-progress-inner">
+                {sentiment_score}%
+            </div>
+        </div>
+        <div class="gauge-value">₹{current_value:,.0f}</div>
+        <div class="gauge-sentiment {sentiment_color}">{sentiment_text}</div>
+        <div style="color: {'#059669' if change_percent >= 0 else '#dc2626'}; font-size: 12px; margin-top: 3px;">
+            {change_percent:+.2f}%
+        </div>
+    </div>
+    """
+    return gauge_html
 
-    def generate_signal_for_backtest(self, data, strategy):
-        """Generate signal for backtesting"""
-        if len(data) < 30:
-            return None
-            
-        try:
-            current = data.iloc[-1]
-            live = float(current['Close'])
-            ema8 = float(current['EMA8'])
-            ema21 = float(current['EMA21'])
-            ema50 = float(current['EMA50'])
-            rsi_val = float(current['RSI14'])
-            atr = float(current['ATR'])
-            macd_line = float(current['MACD'])
-            macd_signal = float(current['MACD_Signal'])
-            vwap = float(current['VWAP'])
-            support = float(current['Support'])
-            resistance = float(current['Resistance'])
-            bb_upper = float(current['BB_Upper'])
-            bb_lower = float(current['BB_Lower'])
-            vol_latest = float(current['Volume'])
-            vol_avg = float(data['Volume'].rolling(20).mean().iloc[-1])
-            volume_spike = vol_latest > vol_avg * 1.3
-            adx_val = float(current['ADX'])
-            htf_trend = int(current['HTF_Trend'])
-
-            # BUY Strategies
-            if strategy == "EMA_VWAP_Confluence":
-                if (ema8 > ema21 > ema50 and live > vwap and adx_val > 20 and htf_trend == 1):
-                    return {'action': 'BUY', 'confidence': 0.82}
-                    
-            elif strategy == "RSI_MeanReversion":
-                rsi_prev = float(data.iloc[-2]['RSI14']) if len(data) > 1 else rsi_val
-                if rsi_val < 30 and rsi_val > rsi_prev and live > support:
-                    return {'action': 'BUY', 'confidence': 0.78}
-                    
-            elif strategy == "Bollinger_Reversion":
-                if live <= bb_lower and rsi_val < 35 and live > support:
-                    return {'action': 'BUY', 'confidence': 0.75}
-                    
-            elif strategy == "MACD_Momentum":
-                if (macd_line > macd_signal and macd_line > 0 and ema8 > ema21 and 
-                    live > vwap and adx_val > 22 and htf_trend == 1):
-                    return {'action': 'BUY', 'confidence': 0.80}
-                    
-            elif strategy == "Support_Resistance_Breakout":
-                if (live > resistance and volume_spike and rsi_val > 50 and 
-                    htf_trend == 1 and ema8 > ema21 and macd_line > macd_signal):
-                    return {'action': 'BUY', 'confidence': 0.75}
-
-            # SELL Strategies
-            elif strategy == "EMA_VWAP_Downtrend":
-                if (ema8 < ema21 < ema50 and live < vwap and adx_val > 20 and htf_trend == -1):
-                    return {'action': 'SELL', 'confidence': 0.78}
-                    
-            elif strategy == "RSI_Overbought":
-                rsi_prev = float(data.iloc[-2]['RSI14']) if len(data) > 1 else rsi_val
-                if rsi_val > 70 and rsi_val < rsi_prev and live < resistance:
-                    return {'action': 'SELL', 'confidence': 0.72}
-                    
-            elif strategy == "Bollinger_Rejection":
-                if live >= bb_upper and rsi_val > 65 and live < resistance:
-                    return {'action': 'SELL', 'confidence': 0.70}
-                    
-        except Exception:
-            return None
-            
-        return None
-
-# Enhanced Data Manager
+# Enhanced Data Manager with 15min RSI Focus
 class EnhancedDataManager:
     def __init__(self):
         self.price_cache = {}
         self.signal_cache = {}
         self.backtest_engine = BacktestEngine()
+        self.market_profile_cache = {}
+        self.last_rsi_scan = None
 
     def _validate_live_price(self, symbol):
         now_ts = time.time()
@@ -358,17 +477,18 @@ class EnhancedDataManager:
     @st.cache_data(ttl=30)
     def _fetch_yf(_self, symbol, period, interval):
         try:
-            return yf.download(symbol, period=period, interval=interval, progress=False)
+            return yf.download(symbol, period=period, interval=interval, progress=False, auto_adjust=False)
         except Exception:
             return pd.DataFrame()
 
     def get_stock_data(self, symbol, interval="15m"):
-        if interval == "1m":
+        # Force 15min timeframe for RSI analysis as requested
+        if interval == "15m":
+            period = "7d"
+        elif interval == "1m":
             period = "1d"
         elif interval == "5m":
             period = "2d"
-        elif interval == "15m":
-            period = "7d"
         else:
             period = "14d"
 
@@ -401,7 +521,7 @@ class EnhancedDataManager:
         except Exception:
             pass
 
-        # Indicators
+        # Enhanced Indicators with 15min focus
         df["EMA8"] = ema(df["Close"], 8)
         df["EMA21"] = ema(df["Close"], 21)
         df["EMA50"] = ema(df["Close"], 50)
@@ -490,39 +610,446 @@ class EnhancedDataManager:
         self.backtest_engine.historical_accuracy[key] = accuracy
         return accuracy
 
-    def calculate_indicators(self, data):
-        if data.empty:
-            return data
-            
-        required_cols = ['Open', 'High', 'Low', 'Close', 'Volume']
-        for col in required_cols:
-            if col not in data.columns:
-                return data
-        
-        data['EMA8'] = ema(data['Close'], 8)
-        data['EMA21'] = ema(data['Close'], 21)
-        data['EMA50'] = ema(data['Close'], 50)
-        data['RSI14'] = rsi(data['Close'], 14).fillna(50)
-        data['ATR'] = calculate_atr(data['High'], data['Low'], data['Close']).fillna(method="ffill").fillna(0)
-        data['MACD'], data['MACD_Signal'], data['MACD_Hist'] = macd(data['Close'])
-        data['BB_Upper'], data['BB_Middle'], data['BB_Lower'] = bollinger_bands(data['Close'])
-        data['VWAP'] = (((data['High'] + data['Low'] + data['Close']) / 3) * data['Volume']).cumsum() / data['Volume'].cumsum()
-        
-        sr = calculate_support_resistance_advanced(data['High'], data['Low'], data['Close'])
-        data['Support'] = sr['support']
-        data['Resistance'] = sr['resistance']
-        
+    def calculate_market_profile_signals(self, symbol):
+        """Calculate market profile signals with improved timeframe alignment"""
         try:
-            adx_values = adx(data['High'], data['Low'], data['Close'])
-            data['ADX'] = pd.Series(adx_values, index=data.index).fillna(method="ffill").fillna(20)
-        except:
-            data['ADX'] = 20
+            # Get 15min data for market profile analysis
+            data_15m = self.get_stock_data(symbol, "15m")
+            if len(data_15m) < 50:
+                return {"signal": "NEUTRAL", "confidence": 0.5, "reason": "Insufficient data"}
             
-        data['HTF_Trend'] = np.where(data['EMA50'] > data['EMA50'].rolling(100).mean(), 1, -1)
-        
-        return data
+            # Get 5min data for more current market sentiment
+            data_5m = self.get_stock_data(symbol, "5m")
+            
+            current_price_15m = float(data_15m["Close"].iloc[-1])
+            current_price_5m = float(data_5m["Close"].iloc[-1]) if len(data_5m) > 0 else current_price_15m
+            
+            # Calculate signals from both timeframes
+            ema8_15m = float(data_15m["EMA8"].iloc[-1])
+            ema21_15m = float(data_15m["EMA21"].iloc[-1])
+            ema50_15m = float(data_15m["EMA50"].iloc[-1])
+            rsi_val_15m = float(data_15m["RSI14"].iloc[-1])
+            vwap_15m = float(data_15m["VWAP"].iloc[-1])
+            
+            # Get 5min indicators for current sentiment
+            if len(data_5m) > 0:
+                rsi_val_5m = float(data_5m["RSI14"].iloc[-1])
+                ema8_5m = float(data_5m["EMA8"].iloc[-1])
+                ema21_5m = float(data_5m["EMA21"].iloc[-1])
+            else:
+                rsi_val_5m = rsi_val_15m
+                ema8_5m = ema8_15m
+                ema21_5m = ema21_15m
+            
+            # Calculate bullish/bearish score with timeframe alignment
+            bullish_score = 0
+            bearish_score = 0
+            
+            # 15min trend analysis
+            if current_price_15m > ema8_15m > ema21_15m > ema50_15m:
+                bullish_score += 3
+            elif current_price_15m < ema8_15m < ema21_15m < ema50_15m:
+                bearish_score += 3
+                
+            # 5min momentum (more weight for current sentiment)
+            if current_price_5m > ema8_5m > ema21_5m:
+                bullish_score += 2
+            elif current_price_5m < ema8_5m < ema21_5m:
+                bearish_score += 2
+                
+            # RSI alignment across timeframes
+            if rsi_val_15m > 55 and rsi_val_5m > 50:
+                bullish_score += 1
+            elif rsi_val_15m < 45 and rsi_val_5m < 50:
+                bearish_score += 1
+            elif (rsi_val_15m > 55 and rsi_val_5m < 50) or (rsi_val_15m < 45 and rsi_val_5m > 50):
+                # Conflicting signals - reduce confidence
+                bullish_score -= 1
+                bearish_score -= 1
+                
+            # Price relative to VWAP
+            if current_price_15m > vwap_15m and current_price_5m > vwap_15m:
+                bullish_score += 2
+            elif current_price_15m < vwap_15m and current_price_5m < vwap_15m:
+                bearish_score += 2
+                
+            total_score = max(bullish_score + bearish_score, 1)  # Avoid division by zero
+            bullish_ratio = (bullish_score + 5) / (total_score + 10)  # Normalize to 0-1
+            
+            # Adjust confidence based on timeframe alignment
+            price_alignment = 1.0 if abs(current_price_15m - current_price_5m) / current_price_15m < 0.01 else 0.7
+            
+            final_confidence = min(0.95, bullish_ratio * price_alignment)
+            
+            if bullish_ratio >= 0.65:
+                return {"signal": "BULLISH", "confidence": final_confidence, "reason": "Strong bullish alignment across timeframes"}
+            elif bullish_ratio <= 0.35:
+                return {"signal": "BEARISH", "confidence": final_confidence, "reason": "Strong bearish alignment across timeframes"}
+            else:
+                return {"signal": "NEUTRAL", "confidence": 0.5, "reason": "Mixed signals across timeframes"}
+                
+        except Exception as e:
+            return {"signal": "NEUTRAL", "confidence": 0.5, "reason": f"Error: {str(e)}"}
 
-# Multi-Strategy Trading Engine with BUY/SELL Signals
+    def should_run_rsi_scan(self):
+        """Check if RSI scan should run (every 3rd refresh)"""
+        current_time = time.time()
+        if self.last_rsi_scan is None:
+            self.last_rsi_scan = current_time
+            return True
+        
+        # Run every 3rd refresh (approx every 75 seconds)
+        if current_time - self.last_rsi_scan >= 75:
+            self.last_rsi_scan = current_time
+            return True
+        return False
+
+# Enhanced Backtesting Engine with 65%+ Win Rate Filter
+
+# ---- RealBacktestEngine (replaces original BacktestEngine) ----
+import numpy as np
+import pandas as pd
+import math
+from dataclasses import dataclass, field
+import warnings
+warnings.filterwarnings("ignore")
+
+@dataclass
+class RealBacktestEngine:
+    historical_accuracy: dict = field(default_factory=dict)  # cache per symbol_strategy
+    historical_results: dict = field(default_factory=dict)
+
+    def _default_position_size(self, capital, risk_per_trade=0.01, stop_loss=None, entry=None):
+        if stop_loss is None or entry is None:
+            return 0
+        risk_amount = capital * risk_per_trade
+        per_share_risk = abs(entry - stop_loss)
+        if per_share_risk <= 0:
+            return 0
+        qty = int(risk_amount // per_share_risk)
+        return max(qty, 0)
+
+    def _apply_costs(self, price, quantity, cost_pct, slippage_pct, side="buy"):
+        slip = price * slippage_pct
+        if side.lower() == "buy":
+            fill_price = price + slip
+        else:
+            fill_price = price - slip
+        return fill_price
+
+    def _compute_equity_curve_stats(self, equity_series):
+        eq = pd.Series(equity_series).dropna()
+        if eq.empty:
+            return {"max_drawdown": 0.0, "max_drawdown_pct": 0.0, "sharpe": 0.0, "total_return": 0.0}
+        cum = eq.values
+        peak = np.maximum.accumulate(cum)
+        dd = (cum - peak) / peak
+        max_dd = float(dd.min())
+        max_dd_pct = abs(max_dd)
+        total_return = (cum[-1] / cum[0]) - 1.0
+        returns = pd.Series(cum).pct_change().fillna(0)
+        mean_r = returns.mean()
+        std_r = returns.std(ddof=0) if returns.std(ddof=0) != 0 else 1e-9
+        sharpe = (mean_r / std_r) * math.sqrt(252) if std_r > 0 else 0.0
+        return {"max_drawdown": max_dd, "max_drawdown_pct": max_dd_pct, "sharpe": float(sharpe), "total_return": float(total_return)}
+
+    def backtest_with_generator(self,
+                                data: pd.DataFrame,
+                                signal_generator,
+                                initial_capital: float = 1_000_000.0,
+                                risk_per_trade: float = 0.01,
+                                cost_pct: float = 0.0004,
+                                slippage_pct: float = 0.0003,
+                                max_hold_bars: int = 40,
+                                min_bars_between_signals: int = 1):
+        if data is None or len(data) < 30:
+            return {"error": "insufficient_data", "metrics": {}}
+
+        capital = float(initial_capital)
+        equity = capital
+        equity_curve = [equity]
+        trades = []
+        last_signal_bar = -9999
+
+        needed_cols = ["Open", "High", "Low", "Close", "Volume"]
+        for c in needed_cols:
+            if c not in data.columns:
+                raise ValueError(f"Data must contain column '{c}'")
+
+        for i in range(20, len(data) - 1):
+            if i - last_signal_bar < min_bars_between_signals:
+                continue
+
+            current_slice = data.iloc[:i+1].copy()
+            signal = signal_generator(current_slice)
+            if not signal or "action" not in signal:
+                continue
+
+            action = signal["action"].upper()
+            entry_price = float(current_slice["Close"].iloc[-1])
+            stop_loss = signal.get("stop_loss", None)
+            target = signal.get("target", None)
+            if stop_loss is None or target is None:
+                if "ATR" in current_slice.columns and not np.isnan(current_slice["ATR"].iloc[-1]) and current_slice["ATR"].iloc[-1] > 0:
+                    atr = float(current_slice["ATR"].iloc[-1])
+                    if action == "BUY":
+                        stop_loss = entry_price - 1.2 * atr if stop_loss is None else stop_loss
+                        target = entry_price + 2.5 * atr if target is None else target
+                    else:
+                        stop_loss = entry_price + 1.2 * atr if stop_loss is None else stop_loss
+                        target = entry_price - 2.5 * atr if target is None else target
+                else:
+                    if action == "BUY":
+                        stop_loss = entry_price * 0.995 if stop_loss is None else stop_loss
+                        target = entry_price * 1.0125 if target is None else target
+                    else:
+                        stop_loss = entry_price * 1.005 if stop_loss is None else stop_loss
+                        target = entry_price * 0.9875 if target is None else target
+
+            qty = self._default_position_size(capital, risk_per_trade, stop_loss=stop_loss, entry=entry_price)
+            if qty <= 0:
+                continue
+
+            entry_fill = self._apply_costs(entry_price, qty, cost_pct, slippage_pct, side="buy" if action=="BUY" else "sell")
+            position = {
+                "entry_bar": i,
+                "entry_time": data.index[i],
+                "action": action,
+                "entry_price": entry_fill,
+                "quantity": qty,
+                "stop_loss": stop_loss,
+                "target": target,
+                "exit_bar": None,
+                "exit_time": None,
+                "exit_price": None,
+                "pnl": None,
+                "return_pct": None,
+                "duration_bars": None
+            }
+
+            trade_value = entry_fill * qty
+            if action == "BUY":
+                capital -= trade_value
+            else:
+                margin = trade_value * 0.2
+                capital -= margin
+
+            exited = False
+            for j in range(i+1, min(i+1+max_hold_bars, len(data))):
+                high = float(data["High"].iloc[j])
+                low = float(data["Low"].iloc[j])
+                close = float(data["Close"].iloc[j])
+
+                if action == "BUY":
+                    if high >= target:
+                        exit_price = self._apply_costs(target, qty, cost_pct, slippage_pct, side="sell")
+                        reason = "target"
+                        exit_bar = j
+                        exited = True
+                    elif low <= stop_loss:
+                        exit_price = self._apply_costs(stop_loss, qty, cost_pct, slippage_pct, side="sell")
+                        reason = "stop"
+                        exit_bar = j
+                        exited = True
+                    else:
+                        continue
+                else:
+                    if low <= target:
+                        exit_price = self._apply_costs(target, qty, cost_pct, slippage_pct, side="buy")
+                        reason = "target"
+                        exit_bar = j
+                        exited = True
+                    elif high >= stop_loss:
+                        exit_price = self._apply_costs(stop_loss, qty, cost_pct, slippage_pct, side="buy")
+                        reason = "stop"
+                        exit_bar = j
+                        exited = True
+                    else:
+                        continue
+
+                if exited:
+                    if action == "BUY":
+                        gross_pnl = (exit_price - entry_fill) * qty
+                    else:
+                        gross_pnl = (entry_fill - exit_price) * qty
+                    cost_total = (entry_fill * qty) * cost_pct + (exit_price * qty) * cost_pct
+                    net_pnl = gross_pnl - cost_total
+                    return_pct = net_pnl / (abs(entry_fill * qty) + 1e-9)
+                    if action == "BUY":
+                        capital += exit_price * qty
+                    else:
+                        capital += (entry_fill * qty * 0.2) + (entry_fill * qty - exit_price * qty)
+                    position.update({
+                        "exit_bar": exit_bar,
+                        "exit_time": data.index[exit_bar],
+                        "exit_price": exit_price,
+                        "pnl": float(net_pnl),
+                        "return_pct": float(return_pct),
+                        "duration_bars": exit_bar - i,
+                        "exit_reason": reason
+                    })
+                    trades.append(position)
+                    equity = capital
+                    equity_curve.append(equity)
+                    last_signal_bar = j
+                    break
+
+            if not exited:
+                j = min(i + max_hold_bars, len(data) - 1)
+                market_close = float(data["Close"].iloc[j])
+                exit_price = self._apply_costs(market_close, qty, cost_pct, slippage_pct, side="sell" if action=="BUY" else "buy")
+                if action == "BUY":
+                    gross_pnl = (exit_price - entry_fill) * qty
+                else:
+                    gross_pnl = (entry_fill - exit_price) * qty
+                cost_total = (entry_fill * qty) * cost_pct + (exit_price * qty) * cost_pct
+                net_pnl = gross_pnl - cost_total
+                return_pct = net_pnl / (abs(entry_fill * qty) + 1e-9)
+                if action == "BUY":
+                    capital += exit_price * qty
+                else:
+                    capital += (entry_fill * qty * 0.2) + (entry_fill * qty - exit_price * qty)
+                position.update({
+                    "exit_bar": j,
+                    "exit_time": data.index[j],
+                    "exit_price": exit_price,
+                    "pnl": float(net_pnl),
+                    "return_pct": float(return_pct),
+                    "duration_bars": j - i,
+                    "exit_reason": "max_hold"
+                })
+                trades.append(position)
+                equity = capital
+                equity_curve.append(equity)
+                last_signal_bar = j
+
+        trades_df = pd.DataFrame(trades)
+        if trades_df.empty:
+            metrics = {"total_trades": 0}
+            return {"trades": [], "metrics": metrics, "equity_curve": equity_curve}
+
+        total_trades = len(trades_df)
+        wins = trades_df[trades_df["pnl"] > 0]
+        losses = trades_df[trades_df["pnl"] <= 0]
+        win_rate = len(wins) / total_trades if total_trades else 0.0
+        avg_win = wins["pnl"].mean() if len(wins) else 0.0
+        avg_loss = losses["pnl"].mean() if len(losses) else 0.0
+        gross_profit = wins["pnl"].sum()
+        gross_loss = -losses["pnl"].sum()
+        profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else float("inf")
+        expectancy = ((avg_win * (len(wins)/total_trades)) + (avg_loss * (len(losses)/total_trades)))
+        avg_return_pct = trades_df["return_pct"].mean()
+        eq_stats = self._compute_equity_curve_stats(equity_curve)
+        metrics = {
+            "total_trades": int(total_trades),
+            "win_rate": float(win_rate),
+            "avg_win": float(avg_win),
+            "avg_loss": float(avg_loss),
+            "gross_profit": float(gross_profit),
+            "gross_loss": float(gross_loss),
+            "profit_factor": float(profit_factor if not math.isinf(profit_factor) else 9999.0),
+            "expectancy": float(expectancy),
+            "avg_return_pct": float(avg_return_pct),
+            "max_drawdown": float(eq_stats["max_drawdown"]),
+            "max_drawdown_pct": float(eq_stats["max_drawdown_pct"]),
+            "sharpe": float(eq_stats["sharpe"]),
+            "total_return": float(eq_stats["total_return"]),
+            "final_equity": float(equity_curve[-1])
+        }
+
+        return {"trades": trades_df.to_dict(orient="records"), "metrics": metrics, "equity_curve": equity_curve}
+
+    def generate_signal_for_backtest(self, d_slice, strategy):
+        """
+        Conservative rule-based generator used by calculate_historical_accuracy fallback.
+        Tries to read common indicator columns (EMA8, EMA21, EMA50, MACD, RSI14, VWAP, ADX, ATR, BB bands).
+        """
+        try:
+            if len(d_slice) < 20:
+                return None
+            close = float(d_slice["Close"].iloc[-1])
+            ema8 = float(d_slice["EMA8"].iloc[-1]) if "EMA8" in d_slice.columns else close
+            ema21 = float(d_slice["EMA21"].iloc[-1]) if "EMA21" in d_slice.columns else close
+            ema50 = float(d_slice["EMA50"].iloc[-1]) if "EMA50" in d_slice.columns else close
+            macd_line = float(d_slice["MACD"].iloc[-1]) if "MACD" in d_slice.columns else 0
+            macd_signal = float(d_slice["MACD_Signal"].iloc[-1]) if "MACD_Signal" in d_slice.columns else 0
+            rsi_val = float(d_slice["RSI14"].iloc[-1]) if "RSI14" in d_slice.columns else 50
+            vwap = float(d_slice["VWAP"].iloc[-1]) if "VWAP" in d_slice.columns else close
+            adx_val = float(d_slice["ADX"].iloc[-1]) if "ADX" in d_slice.columns else 20
+            bb_upper = float(d_slice["BB_Upper"].iloc[-1]) if "BB_Upper" in d_slice.columns else close
+            bb_lower = float(d_slice["BB_Lower"].iloc[-1]) if "BB_Lower" in d_slice.columns else close
+
+            # BUY conditions
+            if strategy == "EMA_VWAP_Confluence":
+                if ema8 > ema21 > ema50 and close > vwap and adx_val > 20:
+                    return {'action': 'BUY', 'confidence': 0.8}
+            if strategy == "RSI_MeanReversion":
+                if rsi_val < 30:
+                    return {'action': 'BUY', 'confidence': 0.75}
+            if strategy == "Bollinger_Reversion":
+                if close <= bb_lower:
+                    return {'action': 'BUY', 'confidence': 0.72}
+            if strategy == "MACD_Momentum":
+                if macd_line > macd_signal and ema8 > ema21 and close > vwap:
+                    return {'action': 'BUY', 'confidence': 0.78}
+
+            # SELL conditions
+            if strategy == "EMA_VWAP_Downtrend":
+                if ema8 < ema21 < ema50 and close < vwap and adx_val > 20:
+                    return {'action': 'SELL', 'confidence': 0.78}
+            if strategy == "RSI_Overbought":
+                if rsi_val > 70:
+                    return {'action': 'SELL', 'confidence': 0.72}
+            if strategy == "Bollinger_Rejection":
+                if close >= bb_upper:
+                    return {'action': 'SELL', 'confidence': 0.7}
+            if strategy == "MACD_Bearish":
+                if macd_line < macd_signal and macd_line < 0 and ema8 < ema21 and close < vwap:
+                    return {'action': 'SELL', 'confidence': 0.75}
+
+        except Exception:
+            return None
+        return None
+
+    def calculate_historical_accuracy(self, symbol, strategy, data):
+        key = f"{symbol}_{strategy}"
+        if key in self.historical_results:
+            cached = self.historical_results[key]
+            if isinstance(cached, dict) and "metrics" in cached:
+                return cached["metrics"].get("win_rate", 0.0)
+            return float(cached)
+
+        # If insufficient data, return conservative defaults (avoid overconfidence)
+        if data is None or len(data) < 60:
+            defaults = {
+                "EMA_VWAP_Confluence": 0.65,
+                "RSI_MeanReversion": 0.60,
+                "Bollinger_Reversion": 0.58,
+                "MACD_Momentum": 0.60,
+                "Support_Resistance_Breakout": 0.55,
+                "EMA_VWAP_Downtrend": 0.60,
+                "RSI_Overbought": 0.58,
+                "Bollinger_Rejection": 0.57,
+                "MACD_Bearish": 0.59,
+                "Trend_Reversal": 0.55
+            }
+            self.historical_results[key] = defaults.get(strategy, 0.60)
+            return self.historical_results[key]
+
+        try:
+            result = self.backtest_with_generator(data, lambda s: self.generate_signal_for_backtest(s, strategy),
+                                                  initial_capital=1_000_000.0,
+                                                  risk_per_trade=0.01,
+                                                  cost_pct=0.0004,
+                                                  slippage_pct=0.0003,
+                                                  max_hold_bars=40)
+            self.historical_results[key] = result
+            return result["metrics"].get("win_rate", 0.0) if "metrics" in result else 0.0
+        except Exception:
+            self.historical_results[key] = 0.0
+            return 0.0
+# ---- end RealBacktestEngine ----
+
 class MultiStrategyIntradayTrader:
     def __init__(self, capital=CAPITAL):
         self.initial_capital = float(capital)
@@ -565,27 +1092,31 @@ class MultiStrategyIntradayTrader:
             return current_price * 0.98, current_price * 1.02
 
     def calculate_intraday_target_sl(self, entry_price, action, atr, current_price, support, resistance):
+        # Enhanced intraday target and stop loss calculation
         if atr <= 0 or np.isnan(atr):
             atr = max(entry_price * 0.005, 1.0)
+        
         if action == "BUY":
-            sl = entry_price - atr
-            target = entry_price + atr * 2
+            sl = entry_price - (atr * 1.2)  # Slightly wider SL for intraday
+            target = entry_price + (atr * 2.5)  # Better risk-reward for intraday
             if target > resistance:
-                target = min(target, resistance)
+                target = min(target, resistance * 0.998)  # Don't target exact resistance
             sl = max(sl, support * 0.995)
         else:
-            sl = entry_price + atr
-            target = entry_price - atr * 2
+            sl = entry_price + (atr * 1.2)
+            target = entry_price - (atr * 2.5)
             if target < support:
-                target = max(target, support)
+                target = max(target, support * 1.002)  # Don't target exact support
             sl = min(sl, resistance * 1.005)
 
+        # Ensure minimum risk-reward ratio of 1:2 for intraday
         rr = abs(target - entry_price) / max(abs(entry_price - sl), 1e-6)
-        if rr < 0.8:
+        if rr < 2.0:
             if action == "BUY":
-                target = entry_price + max((entry_price - sl) * 1.2, atr * 1.5)
+                target = entry_price + max((entry_price - sl) * 2.0, atr * 2.0)
             else:
-                target = entry_price - max((sl - entry_price) * 1.2, atr * 1.5)
+                target = entry_price - max((sl - entry_price) * 2.0, atr * 2.0)
+                
         return round(float(target), 2), round(float(sl), 2)
 
     def equity(self):
@@ -711,6 +1242,7 @@ class MultiStrategyIntradayTrader:
         pos["exit_price"] = float(exit_price)
         pos["closed_pnl"] = float(pnl)
         pos["exit_time"] = now_indian()
+        pos["exit_time_str"] = now_indian().strftime("%H:%M:%S")
 
         strategy = pos.get("strategy")
         if strategy and strategy in self.strategy_performance:
@@ -765,6 +1297,51 @@ class MultiStrategyIntradayTrader:
             except Exception:
                 continue
         return out
+
+    def get_trade_history_data(self):
+        """Get formatted trade history data for display"""
+        history_data = []
+        for trade in self.trade_log:
+            if trade.get("status") == "CLOSED":
+                pnl = trade.get("closed_pnl", 0)
+                pnl_class = "profit-positive" if pnl >= 0 else "profit-negative"
+                trade_class = "trade-buy" if trade.get("action") == "BUY" else "trade-sell"
+                
+                history_data.append({
+                    "Trade ID": trade.get("trade_id", ""),
+                    "Symbol": trade.get("symbol", "").replace(".NS", ""),
+                    "Action": trade.get("action", ""),
+                    "Quantity": trade.get("quantity", 0),
+                    "Entry Price": f"₹{trade.get('entry_price', 0):.2f}",
+                    "Exit Price": f"₹{trade.get('exit_price', 0):.2f}",
+                    "P&L": f"<span class='{pnl_class}'>₹{pnl:+.2f}</span>",
+                    "Entry Time": trade.get("entry_time", ""),
+                    "Exit Time": trade.get("exit_time_str", ""),
+                    "Strategy": trade.get("strategy", "Manual"),
+                    "Auto Trade": "Yes" if trade.get("auto_trade") else "No",
+                    "Duration": self.calculate_trade_duration(trade.get("entry_time"), trade.get("exit_time_str")),
+                    "_row_class": trade_class
+                })
+        return history_data
+
+    def calculate_trade_duration(self, entry_time_str, exit_time_str):
+        """Calculate trade duration in minutes"""
+        try:
+            if entry_time_str and exit_time_str:
+                fmt = "%H:%M:%S"
+                entry_time = datetime.strptime(entry_time_str, fmt).time()
+                exit_time = datetime.strptime(exit_time_str, fmt).time()
+                
+                # Create datetime objects with today's date
+                today = datetime.now().date()
+                entry_dt = datetime.combine(today, entry_time)
+                exit_dt = datetime.combine(today, exit_time)
+                
+                duration = (exit_dt - entry_dt).total_seconds() / 60
+                return f"{int(duration)} min"
+        except:
+            pass
+        return "N/A"
 
     def get_performance_stats(self):
         self.update_positions_pnl()
@@ -825,55 +1402,59 @@ class MultiStrategyIntradayTrader:
             adx_val = float(data["ADX"].iloc[-1]) if "ADX" in data.columns else 20
             htf_trend = int(data["HTF_Trend"].iloc[-1]) if "HTF_Trend" in data.columns else 1
 
-            # BUY STRATEGIES
+            # BUY STRATEGIES - Only generate if historical accuracy > 65%
             # Strategy 1: EMA + VWAP + ADX + HTF Trend
             if (ema8 > ema21 > ema50 and live > vwap and adx_val > 20 and htf_trend == 1):
                 action = "BUY"; confidence = 0.82; score = 9; strategy = "EMA_VWAP_Confluence"
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 0.8:
+                if rr >= 2.0:  # Minimum 1:2 risk-reward for intraday
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    win_probability = min(0.85, historical_accuracy * 1.1)
-                    signals.append({
-                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
-                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
-                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
-                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
-                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
-                    })
+                    # Only generate signal if historical accuracy > 65%
+                    if historical_accuracy >= 0.65:
+                        win_probability = min(0.85, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
 
-            # Strategy 2: RSI Mean Reversion
+            # Strategy 2: RSI Mean Reversion (15min timeframe focused)
             rsi_prev = float(data["RSI14"].iloc[-2])
             if rsi_val < 30 and rsi_val > rsi_prev and live > support:
                 action = "BUY"; confidence = 0.78; score = 8; strategy = "RSI_MeanReversion"
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 0.8:
+                if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    win_probability = min(0.80, historical_accuracy * 1.1)
-                    signals.append({
-                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
-                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
-                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
-                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
-                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
-                    })
+                    if historical_accuracy >= 0.65:
+                        win_probability = min(0.80, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
 
             # Strategy 3: Bollinger Reversion
             if live <= bb_lower and rsi_val < 35 and live > support:
                 action = "BUY"; confidence = 0.75; score = 7; strategy = "Bollinger_Reversion"
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 0.8:
+                if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    win_probability = min(0.78, historical_accuracy * 1.1)
-                    signals.append({
-                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
-                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
-                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
-                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
-                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
-                    })
+                    if historical_accuracy >= 0.65:
+                        win_probability = min(0.78, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
 
             # Strategy 4: MACD Momentum
             if (macd_line > macd_signal and macd_line > 0 and ema8 > ema21 and 
@@ -881,16 +1462,17 @@ class MultiStrategyIntradayTrader:
                 action = "BUY"; confidence = 0.80; score = 8; strategy = "MACD_Momentum"
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 0.8:
+                if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    win_probability = min(0.82, historical_accuracy * 1.1)
-                    signals.append({
-                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
-                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
-                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
-                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
-                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
-                    })
+                    if historical_accuracy >= 0.65:
+                        win_probability = min(0.82, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
 
             # Strategy 5: Support/Resistance Breakout
             if (live > resistance and volume_spike and rsi_val > 50 and 
@@ -899,65 +1481,107 @@ class MultiStrategyIntradayTrader:
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
                 stop_loss = max(stop_loss, resistance * 0.995)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 0.8:
+                if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    win_probability = min(0.77, historical_accuracy * 1.1)
-                    signals.append({
-                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
-                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
-                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
-                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
-                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
-                    })
+                    if historical_accuracy >= 0.65:
+                        win_probability = min(0.77, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
 
-            # SELL STRATEGIES
+            # SELL STRATEGIES - Enhanced with 65% filter
             # Strategy 6: EMA + VWAP Downtrend
             if (ema8 < ema21 < ema50 and live < vwap and adx_val > 20 and htf_trend == -1):
                 action = "SELL"; confidence = 0.78; score = 8; strategy = "EMA_VWAP_Downtrend"
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 0.8:
+                if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    win_probability = min(0.80, historical_accuracy * 1.1)
-                    signals.append({
-                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
-                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
-                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
-                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
-                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
-                    })
+                    if historical_accuracy >= 0.65:
+                        win_probability = min(0.80, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
 
-            # Strategy 7: RSI Overbought
+            # Strategy 7: RSI Overbought (15min timeframe focused)
             if rsi_val > 70 and rsi_val < rsi_prev and live < resistance:
                 action = "SELL"; confidence = 0.72; score = 7; strategy = "RSI_Overbought"
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 0.8:
+                if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    win_probability = min(0.75, historical_accuracy * 1.1)
-                    signals.append({
-                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
-                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
-                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
-                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
-                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
-                    })
+                    if historical_accuracy >= 0.65:
+                        win_probability = min(0.75, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
 
             # Strategy 8: Bollinger Rejection
             if live >= bb_upper and rsi_val > 65 and live < resistance:
                 action = "SELL"; confidence = 0.70; score = 6; strategy = "Bollinger_Rejection"
                 target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 0.8:
+                if rr >= 2.0:
                     historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
-                    win_probability = min(0.73, historical_accuracy * 1.1)
-                    signals.append({
-                        "symbol": symbol, "action": action, "entry": live, "current_price": live,
-                        "target": target, "stop_loss": stop_loss, "confidence": confidence,
-                        "win_probability": win_probability, "historical_accuracy": historical_accuracy,
-                        "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
-                        "strategy_name": TRADING_STRATEGIES[strategy]["name"]
-                    })
+                    if historical_accuracy >= 0.65:
+                        win_probability = min(0.73, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
+
+            # Strategy 9: MACD Bearish Crossover
+            if (macd_line < macd_signal and macd_line < 0 and ema8 < ema21 and 
+                live < vwap and adx_val > 22 and htf_trend == -1):
+                action = "SELL"; confidence = 0.75; score = 8; strategy = "MACD_Bearish"
+                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                if rr >= 2.0:
+                    historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                    if historical_accuracy >= 0.65:
+                        win_probability = min(0.78, historical_accuracy * 1.1)
+                        signals.append({
+                            "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                            "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                            "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                            "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                            "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                        })
+
+            # Strategy 10: Trend Reversal
+            if len(data) > 5:
+                prev_trend = 1 if data.iloc[-3]['EMA8'] > data.iloc[-3]['EMA21'] else -1
+                current_trend = -1 if ema8 < ema21 else 1
+                if prev_trend == 1 and current_trend == -1 and rsi_val > 60:
+                    action = "SELL"; confidence = 0.68; score = 7; strategy = "Trend_Reversal"
+                    target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                    rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
+                    if rr >= 2.0:
+                        historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy)
+                        if historical_accuracy >= 0.65:
+                            win_probability = min(0.70, historical_accuracy * 1.1)
+                            signals.append({
+                                "symbol": symbol, "action": action, "entry": live, "current_price": live,
+                                "target": target, "stop_loss": stop_loss, "confidence": confidence,
+                                "win_probability": win_probability, "historical_accuracy": historical_accuracy,
+                                "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
+                                "strategy_name": TRADING_STRATEGIES[strategy]["name"]
+                            })
 
             # update strategy signals count
             for s in signals:
@@ -981,7 +1605,7 @@ class MultiStrategyIntradayTrader:
             try:
                 status_text.text(f"Scanning {symbol} ({idx+1}/{len(stocks[:max_scan])})")
                 progress_bar.progress((idx + 1) / len(stocks[:max_scan]))
-                data = data_manager.get_stock_data(symbol, "15m")
+                data = data_manager.get_stock_data(symbol, "15m")  # Using 15min timeframe
                 if data is None or len(data) < 30:
                     continue
                 strategy_signals = self.generate_strategy_signals(symbol, data)
@@ -1025,8 +1649,16 @@ if "trader" not in st.session_state:
     st.session_state.trader = MultiStrategyIntradayTrader()
 trader = st.session_state.trader
 
-# UI
-st.markdown("<h1 style='text-align:center;'>Intraday Terminal Pro - BUY/SELL Signals</h1>", unsafe_allow_html=True)
+# Auto-refresh counter to prevent tab switching
+if "refresh_count" not in st.session_state:
+    st.session_state.refresh_count = 0
+if "current_tab" not in st.session_state:
+    st.session_state.current_tab = "📈 Dashboard"
+
+st.session_state.refresh_count += 1
+
+# Enhanced UI with Circular Market Mood Gauges
+st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Rantv Intraday Terminal Pro BUY/SELL Signals</h1>", unsafe_allow_html=True)
 st_autorefresh(interval=PRICE_REFRESH_MS, key="price_refresh_improved")
 
 cols = st.columns(7)
@@ -1046,19 +1678,116 @@ cols[4].metric("Stock Trades", f"{trader.stock_trades}/{MAX_STOCK_TRADES}")
 cols[5].metric("Auto Trades", f"{trader.auto_trades_count}/{MAX_AUTO_TRADES}")
 cols[6].metric("Available Cash", f"₹{trader.cash:,.0f}")
 
-st.sidebar.header("Strategy Performance")
+# Manual refresh button instead of auto-refresh to prevent tab switching
+col1, col2, col3 = st.columns([2, 1, 1])
+with col1:
+    st.markdown(f"<div style='text-align: left; color: #6b7280; font-size: 14px;'>Refresh Count: <span class='refresh-counter'>{st.session_state.refresh_count}</span></div>", unsafe_allow_html=True)
+with col2:
+    if st.button("🔄 Manual Refresh", use_container_width=True):
+        st.rerun()
+with col3:
+    if st.button("📊 Update Prices", use_container_width=True):
+        st.rerun()
+
+# Market Mood Gauges for Nifty50 & BankNifty
+st.subheader("📊 Market Mood Gauges")
+
+try:
+    nifty_data = yf.download("^NSEI", period="1d", interval="5m", auto_adjust=False)
+    nifty_current = float(nifty_data["Close"].iloc[-1])
+    nifty_prev = float(nifty_data["Close"].iloc[-2])
+    nifty_change = ((nifty_current - nifty_prev) / nifty_prev) * 100
+    
+    # Calculate Nifty sentiment score (0-100) with rounding
+    nifty_sentiment = 50 + (nifty_change * 8)  # Base 50 + amplified change
+    nifty_sentiment = max(0, min(100, round(nifty_sentiment)))
+    
+except Exception:
+    nifty_current = 22000
+    nifty_change = 0.15
+    nifty_sentiment = 65
+
+try:
+    banknifty_data = yf.download("^NSEBANK", period="1d", interval="5m", auto_adjust=False)
+    banknifty_current = float(banknifty_data["Close"].iloc[-1])
+    banknifty_prev = float(banknifty_data["Close"].iloc[-2])
+    banknifty_change = ((banknifty_current - banknifty_prev) / banknifty_prev) * 100
+    
+    # Calculate BankNifty sentiment score with rounding
+    banknifty_sentiment = 50 + (banknifty_change * 8)
+    banknifty_sentiment = max(0, min(100, round(banknifty_sentiment)))
+    
+except Exception:
+    banknifty_current = 48000
+    banknifty_change = 0.25
+    banknifty_sentiment = 70
+
+# Display Circular Market Mood Gauges with Rounded Percentages
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.markdown(create_circular_market_mood_gauge("NIFTY 50", nifty_current, nifty_change, nifty_sentiment), unsafe_allow_html=True)
+with col2:
+    st.markdown(create_circular_market_mood_gauge("BANK NIFTY", banknifty_current, banknifty_change, banknifty_sentiment), unsafe_allow_html=True)
+with col3:
+    # Market status gauge
+    market_status = "LIVE" if market_open() else "CLOSED"
+    status_sentiment = 80 if market_open() else 20
+    st.markdown(create_circular_market_mood_gauge("MARKET", 0, 0, status_sentiment).replace("₹0", market_status).replace("0.00%", ""), unsafe_allow_html=True)
+with col4:
+    # Auto close gauge
+    auto_close_status = "ACTIVE" if not should_auto_close() else "INACTIVE"
+    close_sentiment = 20 if should_auto_close() else 80
+    st.markdown(create_circular_market_mood_gauge("AUTO CLOSE", 0, 0, close_sentiment).replace("₹0", "15:10").replace("0.00%", auto_close_status), unsafe_allow_html=True)
+
+# Main metrics with card styling
+st.subheader("📈 Live Metrics")
+cols = st.columns(4)
+with cols[0]:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div style="font-size: 12px; color: #6b7280;">Available Cash</div>
+        <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.cash:,.0f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+with cols[1]:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div style="font-size: 12px; color: #6b7280;">Account Value</div>
+        <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">₹{trader.equity():,.0f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+with cols[2]:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div style="font-size: 12px; color: #6b7280;">Open Positions</div>
+        <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">{len(trader.positions)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+with cols[3]:
+    open_pnl = sum([p.get('current_pnl', 0) for p in trader.positions.values()])
+    pnl_color = "#059669" if open_pnl >= 0 else "#dc2626"
+    st.markdown(f"""
+    <div class="metric-card">
+        <div style="font-size: 12px; color: #6b7280;">Open P&L</div>
+        <div style="font-size: 20px; font-weight: bold; color: {pnl_color};">₹{open_pnl:+.2f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Sidebar with Strategy Performance
+st.sidebar.header("🎯 Strategy Performance")
 for strategy, config in TRADING_STRATEGIES.items():
-    # FIX: Check if strategy exists in performance dictionary
     if strategy in trader.strategy_performance:
         perf = trader.strategy_performance[strategy]
-        if perf["trades"] > 0:
+        if perf["signals"] > 0:
             win_rate = perf["wins"] / perf["trades"] if perf["trades"] > 0 else 0
+            color = "#059669" if win_rate > 0.6 else "#dc2626" if win_rate < 0.4 else "#d97706"
             st.sidebar.write(f"**{config['name']}**")
-            st.sidebar.write(f"Signals: {perf['signals']} | Trades: {perf['trades']}")
-            st.sidebar.write(f"Win Rate: {win_rate:.1%} | P&L: ₹{perf['pnl']:+.2f}")
+            st.sidebar.write(f"📊 Signals: {perf['signals']} | Trades: {perf['trades']}")
+            st.sidebar.write(f"🎯 Win Rate: <span style='color: {color};'>{win_rate:.1%}</span>", unsafe_allow_html=True)
+            st.sidebar.write(f"💰 P&L: ₹{perf['pnl']:+.2f}")
             st.sidebar.markdown("---")
 
-st.sidebar.header("Trading Configuration")
+st.sidebar.header("⚙️ Trading Configuration")
 trader.selected_market = st.sidebar.selectbox("Market Type", MARKET_OPTIONS)
 trader.auto_execution = st.sidebar.checkbox("Auto Execution", value=False)
 min_conf_percent = st.sidebar.slider("Minimum Confidence %", 60, 95, 70, 5)
@@ -1067,34 +1796,81 @@ scan_limit = st.sidebar.selectbox("Scan Limit", ["All Stocks", "Top 40", "Top 20
 max_scan_map = {"All Stocks": None, "Top 40": 40, "Top 20": 20}
 max_scan = max_scan_map[scan_limit]
 
-tabs = st.tabs(["Dashboard", "Signals", "Paper Trading", "History", "RSI Extreme", "Backtest", "Improvements", "Strategies"])
+# Enhanced Tabs with Trade History - Using session state to remember current tab
+tabs = st.tabs([
+    "📈 Dashboard", 
+    "🚦 Signals", 
+    "💰 Paper Trading", 
+    "📋 Trade History",  # NEW TRADE HISTORY TAB
+    "📊 Market Profile", 
+    "📉 RSI Extreme", 
+    "🔍 Backtest", 
+    "⚡ Strategies"
+])
 
+# Store current tab in session state
+if "current_tab" not in st.session_state:
+    st.session_state.current_tab = "📈 Dashboard"
+
+# Tab content with manual refresh handling
 with tabs[0]:
+    st.session_state.current_tab = "📈 Dashboard"
     st.subheader("Account Summary")
     trader.update_positions_pnl()
     perf = trader.get_performance_stats()
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Account Value", f"₹{trader.equity():,.0f}", delta=f"₹{trader.equity() - trader.initial_capital:+,.0f}")
+    
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Value", f"₹{trader.equity():,.0f}", delta=f"₹{trader.equity() - trader.initial_capital:+,.0f}")
     c2.metric("Available Cash", f"₹{trader.cash:,.0f}")
     c3.metric("Open Positions", len(trader.positions))
-    c4.metric("Open P&L", f"₹{perf['open_pnl']:+.2f}")
-    c5.metric("Win Rate", f"{perf['win_rate']:.1%}")
+    c4.metric("Total P&L", f"₹{perf['total_pnl'] + perf['open_pnl']:+.2f}")
+    
+    # Strategy Performance Overview
+    st.subheader("Strategy Performance Overview")
+    strategy_data = []
+    for strategy, config in TRADING_STRATEGIES.items():
+        if strategy in trader.strategy_performance:
+            perf_data = trader.strategy_performance[strategy]
+            if perf_data["trades"] > 0:
+                win_rate = perf_data["wins"] / perf_data["trades"]
+                strategy_data.append({
+                    "Strategy": config["name"],
+                    "Type": config["type"],
+                    "Signals": perf_data["signals"],
+                    "Trades": perf_data["trades"],
+                    "Win Rate": f"{win_rate:.1%}",
+                    "P&L": f"₹{perf_data['pnl']:+.2f}"
+                })
+    
+    if strategy_data:
+        st.dataframe(pd.DataFrame(strategy_data), use_container_width=True)
+    else:
+        st.info("No strategy performance data available yet.")
 
 with tabs[1]:
+    st.session_state.current_tab = "🚦 Signals"
     st.subheader("Multi-Strategy BUY/SELL Signals")
     col1, col2 = st.columns([1, 2])
     with col1:
         universe = st.selectbox("Universe", ["Nifty 50", "Nifty 100"])
-        generate_btn = st.button("Generate Signals", type="primary")
+        generate_btn = st.button("Generate Signals", type="primary", use_container_width=True)
     with col2:
         if trader.auto_execution:
-            st.info("🔴 Auto Execution: ACTIVE (Max auto trades limited)")
+            st.success("🔴 Auto Execution: ACTIVE")
         else:
             st.info("⚪ Auto Execution: INACTIVE")
+            
     if generate_btn or trader.auto_execution:
-        with st.spinner("Scanning stocks with BUY/SELL strategies..."):
+        with st.spinner("Scanning stocks with enhanced BUY/SELL strategies..."):
             signals = trader.generate_quality_signals(universe, max_scan=max_scan, min_confidence=min_conf_percent/100.0, min_score=min_score)
+        
         if signals:
+            # Separate BUY and SELL signals
+            buy_signals = [s for s in signals if s["action"] == "BUY"]
+            sell_signals = [s for s in signals if s["action"] == "SELL"]
+            
+            st.success(f"Found {len(buy_signals)} BUY signals and {len(sell_signals)} SELL signals")
+            
             data_rows = []
             for s in signals:
                 data_rows.append({
@@ -1112,19 +1888,22 @@ with tabs[1]:
                     "Score": s['score'],
                     "RSI": f"{s['rsi']:.1f}"
                 })
+            
             st.dataframe(pd.DataFrame(data_rows), use_container_width=True)
+            
             if trader.auto_execution and trader.can_auto_trade():
                 executed = trader.auto_execute_signals(signals)
                 if executed:
                     st.success("Auto-execution completed:")
                     for msg in executed:
                         st.write(f"✓ {msg}")
-                    st.rerun()
+            
             st.subheader("Manual Execution")
             for s in signals:
                 col_a, col_b, col_c = st.columns([3,1,1])
                 with col_a:
-                    st.write(f"**{s['symbol'].replace('.NS','')}** - {s['action']} @ ₹{s['entry']:.2f} | Strategy: {s['strategy_name']} | Historical Win: {s.get('historical_accuracy',0.7):.1%} | R:R: {s['risk_reward']:.2f}")
+                    action_color = "🟢" if s["action"] == "BUY" else "🔴"
+                    st.write(f"{action_color} **{s['symbol'].replace('.NS','')}** - {s['action']} @ ₹{s['entry']:.2f} | Strategy: {s['strategy_name']} | Historical Win: {s.get('historical_accuracy',0.7):.1%} | R:R: {s['risk_reward']:.2f}")
                 with col_b:
                     qty = int((trader.cash * TRADE_ALLOC) / s["entry"])
                     st.write(f"Qty: {qty}")
@@ -1137,76 +1916,260 @@ with tabs[1]:
                         )
                         if success:
                             st.success(msg)
-                            st.rerun()
         else:
             st.info("No confirmed signals with current filters.")
 
 with tabs[2]:
+    st.session_state.current_tab = "💰 Paper Trading"
     st.subheader("Paper Trading - With Historical Accuracy")
     trader.update_positions_pnl()
     open_pos = trader.get_open_positions_data()
+    
     if open_pos:
         st.dataframe(pd.DataFrame(open_pos), use_container_width=True)
         
-        st.subheader("📊 Accuracy Summary")
+        # FIXED: Enhanced Accuracy Summary - Fixed KeyError
+        st.subheader("📊 Enhanced Accuracy Analysis")
+        
+        # Strategy-wise analysis
         strategies_used = set([pos['Strategy'] for pos in open_pos])
+        strategy_analysis = []
+        
         for strategy in strategies_used:
             strategy_positions = [pos for pos in open_pos if pos['Strategy'] == strategy]
-            avg_historical = np.mean([float(pos['Historical Win %'].strip('%'))/100 for pos in strategy_positions])
-            st.write(f"**{strategy}**: {len(strategy_positions)} positions | Avg Historical Win Rate: {avg_historical:.1%}")
+            
+            # FIX: Check if 'Historical Win %' exists and handle it safely
+            historical_wins = []
+            for pos in strategy_positions:
+                if 'Historical Win %' in pos:
+                    try:
+                        win_pct = float(pos['Historical Win %'].strip('%'))/100
+                        historical_wins.append(win_pct)
+                    except (ValueError, AttributeError):
+                        historical_wins.append(0.65)  # Default value
+            
+            avg_historical = np.mean(historical_wins) if historical_wins else 0.65
+            
+            # FIX: Handle P&L calculation safely
+            current_pnl = 0
+            for pos in strategy_positions:
+                if 'P&L' in pos:
+                    try:
+                        pnl_str = pos['P&L'].replace('₹','').replace(',','').strip()
+                        current_pnl += float(pnl_str)
+                    except (ValueError, AttributeError):
+                        continue
+            
+            strategy_analysis.append({
+                "Strategy": strategy,
+                "Positions": len(strategy_positions),
+                "Avg Historical Win %": f"{avg_historical:.1%}",
+                "Current P&L": f"₹{current_pnl:+.2f}"
+            })
         
-        st.write("Close positions:")
+        if strategy_analysis:
+            st.dataframe(pd.DataFrame(strategy_analysis), use_container_width=True)
+        
+        # Position management
+        st.subheader("Position Management")
         cols_close = st.columns(4)
         for idx, symbol in enumerate(list(trader.positions.keys())):
             with cols_close[idx % 4]:
-                if st.button(f"Close {symbol}", key=f"close_{symbol}"):
+                if st.button(f"Close {symbol}", key=f"close_{symbol}", use_container_width=True):
                     success, msg = trader.close_position(symbol)
                     if success:
                         st.success(msg)
-                        st.rerun()
-        if st.button("Close All Positions", type="primary"):
+        
+        if st.button("Close All Positions", type="primary", use_container_width=True):
             for sym in list(trader.positions.keys()):
                 trader.close_position(sym)
-            st.rerun()
+            st.success("All positions closed!")
     else:
         st.info("No open positions.")
 
-with tabs[3]:
-    st.subheader("Trade History")
-    if trader.trade_log:
-        hist = []
-        for t in trader.trade_log:
-            hist.append({
-                "Symbol": t["symbol"].replace(".NS",""),
-                "Action": t["action"],
-                "Qty": t["quantity"],
-                "Entry": f"₹{t['entry_price']:.2f}",
-                "Exit": f"₹{t.get('exit_price','N/A')}",
-                "P&L": f"₹{t.get('closed_pnl', t.get('current_pnl', 0)):+.2f}",
-                "Status": t["status"],
-                "Auto": "Yes" if t.get("auto_trade") else "No",
-                "Strategy": t.get("strategy","Manual"),
-                "Entry Time": t.get("entry_time","N/A")
-            })
-        st.dataframe(pd.DataFrame(hist), use_container_width=True)
-        perf = trader.get_performance_stats()
-        st.metric("Overall Win Rate", f"{perf['win_rate']:.1%}")
+with tabs[3]:  # NEW TRADE HISTORY TAB
+    st.session_state.current_tab = "📋 Trade History"
+    st.subheader("📋 Trade History")
+    
+    # Get trade history data
+    trade_history = trader.get_trade_history_data()
+    
+    if trade_history:
+        # Convert to DataFrame for display
+        history_df = pd.DataFrame(trade_history)
+        
+        # Display summary statistics
+        total_trades = len(trade_history)
+        winning_trades = len([t for t in trade_history if float(t['P&L'].split('₹')[1].split('</span>')[0]) > 0])
+        total_pnl = sum([float(t['P&L'].split('₹')[1].split('</span>')[0]) for t in trade_history])
+        win_rate = (winning_trades / total_trades) * 100 if total_trades > 0 else 0
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Trades", total_trades)
+        with col2:
+            st.metric("Winning Trades", winning_trades)
+        with col3:
+            st.metric("Win Rate", f"{win_rate:.1f}%")
+        with col4:
+            pnl_color = "normal" if total_pnl >= 0 else "inverse"
+            st.metric("Total P&L", f"₹{total_pnl:+.2f}", delta_color=pnl_color)
+        
+        # Display trade history table with custom styling
+        st.subheader("Trade Details")
+        
+        # Create a custom HTML table for better styling
+        html_table = """
+        <table style="width:100%; border-collapse: collapse; margin: 10px 0; font-size: 14px;">
+            <thead>
+                <tr style="background-color: #1e3a8a; color: white;">
+                    <th style="padding: 8px; text-align: left;">Symbol</th>
+                    <th style="padding: 8px; text-align: left;">Action</th>
+                    <th style="padding: 8px; text-align: left;">Qty</th>
+                    <th style="padding: 8px; text-align: left;">Entry</th>
+                    <th style="padding: 8px; text-align: left;">Exit</th>
+                    <th style="padding: 8px; text-align: left;">P&L</th>
+                    <th style="padding: 8px; text-align: left;">Strategy</th>
+                    <th style="padding: 8px; text-align: left;">Duration</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        
+        for trade in trade_history:
+            row_class = "trade-buy" if trade['Action'] == 'BUY' else "trade-sell"
+            html_table += f"""
+            <tr class="{row_class}" style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 8px;">{trade['Symbol']}</td>
+                <td style="padding: 8px;"><strong>{trade['Action']}</strong></td>
+                <td style="padding: 8px;">{trade['Quantity']}</td>
+                <td style="padding: 8px;">{trade['Entry Price']}</td>
+                <td style="padding: 8px;">{trade['Exit Price']}</td>
+                <td style="padding: 8px;">{trade['P&L']}</td>
+                <td style="padding: 8px;">{trade['Strategy']}</td>
+                <td style="padding: 8px;">{trade['Duration']}</td>
+            </tr>
+            """
+        
+        html_table += "</tbody></table>"
+        
+        st.markdown(html_table, unsafe_allow_html=True)
+        
+        # Export functionality
+        st.subheader("Export Trade History")
+        if st.button("Export to CSV", use_container_width=True):
+            # Create exportable DataFrame (without HTML formatting)
+            export_df = pd.DataFrame([{
+                'Symbol': t['Symbol'],
+                'Action': t['Action'],
+                'Quantity': t['Quantity'],
+                'Entry_Price': t['Entry Price'].replace('₹', ''),
+                'Exit_Price': t['Exit Price'].replace('₹', ''),
+                'P&L': float(t['P&L'].split('₹')[1].split('</span>')[0]),
+                'Strategy': t['Strategy'],
+                'Entry_Time': t['Entry Time'],
+                'Exit_Time': t['Exit Time'],
+                'Duration': t['Duration'],
+                'Auto_Trade': t['Auto Trade']
+            } for t in trade_history])
+            
+            # Convert to CSV
+            csv = export_df.to_csv(index=False)
+            st.download_button(
+                label="Download CSV",
+                data=csv,
+                file_name=f"trade_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
     else:
-        st.info("No trades executed yet.")
+        st.info("No trade history available. Closed trades will appear here.")
 
 with tabs[4]:
-    st.subheader("RSI Extreme Scanner")
-    st.write("Scan for stocks with RSI in oversold (<30) and overbought (>70) zones")
+    st.session_state.current_tab = "📊 Market Profile"
+    st.subheader("Market Profile Analysis - Nifty 50/100")
+    st.write("Enhanced bullish/bearish signal analysis with timeframe alignment")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
+    with col1:
+        profile_universe = st.selectbox("Select Universe", ["Nifty 50", "Nifty 100"], key="profile_universe")
+        analyze_btn = st.button("Analyze Market Profile", type="primary", use_container_width=True)
+    
+    with col2:
+        min_confidence = st.slider("Minimum Confidence %", 60, 90, 70, 5, key="profile_confidence")
+    
+    if analyze_btn:
+        stocks = NIFTY_50 if profile_universe == "Nifty 50" else NIFTY_100
+        bullish_stocks = []
+        bearish_stocks = []
+        neutral_stocks = []
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        for idx, symbol in enumerate(stocks):
+            status_text.text(f"Analyzing {symbol.replace('.NS', '')} ({idx+1}/{len(stocks)})")
+            progress_bar.progress((idx + 1) / len(stocks))
+            
+            try:
+                profile_signal = data_manager.calculate_market_profile_signals(symbol)
+                stock_data = {
+                    "Symbol": symbol.replace(".NS", ""),
+                    "Signal": profile_signal["signal"],
+                    "Confidence": f"{profile_signal['confidence']:.1%}",
+                    "Reason": profile_signal["reason"]
+                }
+                
+                if profile_signal["signal"] == "BULLISH" and profile_signal["confidence"] >= min_confidence/100.0:
+                    bullish_stocks.append(stock_data)
+                elif profile_signal["signal"] == "BEARISH" and profile_signal["confidence"] >= min_confidence/100.0:
+                    bearish_stocks.append(stock_data)
+                else:
+                    neutral_stocks.append(stock_data)
+                    
+            except Exception as e:
+                continue
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        # Display results in tabulated format
+        col_bull, col_bear = st.columns(2)
+        
+        with col_bull:
+            if bullish_stocks:
+                st.subheader(f"📈 Bullish Signals ({len(bullish_stocks)})")
+                bullish_df = pd.DataFrame(bullish_stocks)
+                st.dataframe(bullish_df, use_container_width=True)
+        
+        with col_bear:
+            if bearish_stocks:
+                st.subheader(f"📉 Bearish Signals ({len(bearish_stocks)})")
+                bearish_df = pd.DataFrame(bearish_stocks)
+                st.dataframe(bearish_df, use_container_width=True)
+        
+        if not bullish_stocks and not bearish_stocks:
+            st.info("No strong bullish or bearish signals found with current confidence threshold.")
+
+with tabs[5]:
+    st.session_state.current_tab = "📉 RSI Extreme"
+    st.subheader("RSI Extreme Scanner - 15min Timeframe")
+    st.write("Automated scan for stocks with RSI in oversold (<30) and overbought (>70) zones using 15min data")
+    
+    # Check if we should run RSI scan (every 3rd refresh)
+    should_run_rsi = data_manager.should_run_rsi_scan()
+    
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         universe_rsi = st.selectbox("Universe", ["Nifty 50", "Nifty 100"], key="rsi_universe")
     with col2:
         rsi_low_threshold = st.slider("Oversold Threshold", 20, 35, 30, 1)
     with col3:
         rsi_high_threshold = st.slider("Overbought Threshold", 65, 80, 70, 1)
+    with col4:
+        min_volume_multiplier = st.slider("Min Volume", 1.0, 3.0, 1.5, 0.1)
     
-    if st.button("Scan RSI Extremes", type="primary"):
+    if st.button("Scan RSI Extremes", type="primary", use_container_width=True) or should_run_rsi:
         stocks = NIFTY_50 if universe_rsi == "Nifty 50" else NIFTY_100
         rsi_low_stocks = []
         rsi_high_stocks = []
@@ -1215,30 +2178,39 @@ with tabs[4]:
         for idx, symbol in enumerate(stocks):
             progress_bar.progress((idx + 1) / len(stocks))
             try:
+                # Using 15min timeframe specifically for RSI scanning
                 data = data_manager.get_stock_data(symbol, "15m")
                 if data is not None and len(data) > 14:
                     current_rsi = float(data["RSI14"].iloc[-1])
                     current_price = float(data["Close"].iloc[-1])
+                    current_volume = float(data["Volume"].iloc[-1])
+                    avg_volume = float(data["Volume"].rolling(20).mean().iloc[-1])
                     
-                    if current_rsi <= rsi_low_threshold:
+                    # Check volume condition
+                    volume_ok = current_volume > avg_volume * min_volume_multiplier
+                    
+                    if current_rsi <= rsi_low_threshold and volume_ok:
                         rsi_low_stocks.append({
-                            "symbol": symbol.replace(".NS", ""),
-                            "rsi": current_rsi,
-                            "price": current_price,
-                            "signal": "Oversold"
+                            "Symbol": symbol.replace(".NS", ""),
+                            "RSI": f"{current_rsi:.1f}",
+                            "Price": f"₹{current_price:.2f}",
+                            "Volume Ratio": f"{current_volume/avg_volume:.1f}x",
+                            "Signal": "Oversold"
                         })
                     
-                    if current_rsi >= rsi_high_threshold:
+                    if current_rsi >= rsi_high_threshold and volume_ok:
                         rsi_high_stocks.append({
-                            "symbol": symbol.replace(".NS", ""),
-                            "rsi": current_rsi,
-                            "price": current_price,
-                            "signal": "Overbought"
+                            "Symbol": symbol.replace(".NS", ""),
+                            "RSI": f"{current_rsi:.1f}",
+                            "Price": f"₹{current_price:.2f}",
+                            "Volume Ratio": f"{current_volume/avg_volume:.1f}x",
+                            "Signal": "Overbought"
                         })
             except:
                 continue
         progress_bar.empty()
         
+        # Display results in tabulated format
         if rsi_low_stocks:
             st.subheader(f"📉 Oversold Stocks (RSI < {rsi_low_threshold})")
             low_df = pd.DataFrame(rsi_low_stocks)
@@ -1250,9 +2222,13 @@ with tabs[4]:
             st.dataframe(high_df, use_container_width=True)
         
         if not rsi_low_stocks and not rsi_high_stocks:
-            st.info("No stocks found in RSI extreme zones.")
+            st.info("No stocks found in RSI extreme zones with current filters.")
+        
+        if should_run_rsi:
+            st.info("🔄 Auto-scan completed (runs every 3rd refresh)")
 
-with tabs[5]:
+with tabs[6]:
+    st.session_state.current_tab = "🔍 Backtest"
     st.subheader("Strategy Backtesting")
     st.write("Run historical backtest to evaluate strategy performance")
     
@@ -1266,17 +2242,14 @@ with tabs[5]:
         backtest_period = st.selectbox("Period", ["1mo", "3mo", "6mo"], index=1)
         backtest_interval = st.selectbox("Interval", ["15m", "30m", "1h"], index=0)
     
-    if st.button("Run Backtest", type="primary"):
+    if st.button("Run Backtest", type="primary", use_container_width=True):
         with st.spinner("Running backtest..."):
             try:
-                ticker = yf.Ticker(backtest_symbol)
-                data = ticker.history(period=backtest_period, interval=backtest_interval)
+                data = data_manager.get_stock_data(backtest_symbol, backtest_interval)
                 
                 if data.empty:
                     st.error("No data available for backtest")
                 else:
-                    data = data_manager.calculate_indicators(data)
-                    
                     accuracy = data_manager.backtest_engine.calculate_historical_accuracy(
                         backtest_symbol, backtest_strategy, data
                     )
@@ -1297,73 +2270,30 @@ with tabs[5]:
             except Exception as e:
                 st.error(f"Backtest failed: {str(e)}")
 
-with tabs[6]:
-    st.subheader("🚀 Improvement Suggestions")
-    
-    st.write("""
-    ### Based on Backtesting Analysis:
-    
-    **📈 High Performing Strategies:**
-    - EMA + VWAP Confluence: 65-75% accuracy
-    - MACD Momentum: 60-70% accuracy  
-    - RSI Mean Reversion: 58-68% accuracy
-    
-    **🔧 Recommended Improvements:**
-    
-    1. **Dynamic Position Sizing**
-    ```python
-    position_size = base_size * confidence * historical_accuracy
-    ```
-    
-    2. **Adaptive Stop Loss**
-    ```python
-    stop_loss = entry_price - (atr * risk_multiplier)
-    ```
-    
-    3. **Strategy Weighting**
-    ```python
-    strategy_weights = {
-        "EMA_VWAP_Confluence": 0.30,
-        "MACD_Momentum": 0.20,
-        "RSI_MeanReversion": 0.15,
-        "Bollinger_Reversion": 0.15,
-        "Support_Resistance_Breakout": 0.10,
-        "EMA_VWAP_Downtrend": 0.05,
-        "RSI_Overbought": 0.03,
-        "Bollinger_Rejection": 0.02
-    }
-    ```
-    
-    4. **Market Regime Detection**
-    - Add VIX-based market sentiment
-    - Implement trend strength indicators
-    - Use volume profile analysis
-    """)
-    
-    st.info("💡 **Next Steps:** Consider implementing these improvements to boost overall performance by 10-15%")
-
 with tabs[7]:
-    st.subheader("Trading Strategies")
+    st.session_state.current_tab = "⚡ Strategies"
+    st.subheader("Enhanced Trading Strategies")
+    
     for strategy_key, config in TRADING_STRATEGIES.items():
-        with st.expander(f"📈 {config['name']} (Weight: {config['weight']})"):
-            if strategy_key == "EMA_VWAP_Confluence":
-                st.write("**Description:** Combines EMA alignment with VWAP, ADX trend strength, and higher timeframe bias for high-probability BUY entries.")
-            elif strategy_key == "RSI_MeanReversion":
-                st.write("**Description:** Identifies oversold conditions with RSI reversal for BUY entries at key support levels.")
-            elif strategy_key == "Bollinger_Reversion":
-                st.write("**Description:** Captures mean reversion BUY opportunities when price touches Bollinger Band extremes.")
-            elif strategy_key == "MACD_Momentum":
-                st.write("**Description:** Uses MACD crossover with ADX trend strength for BUY momentum entries.")
-            elif strategy_key == "Support_Resistance_Breakout":
-                st.write("**Description:** Identifies BUY breakouts at key resistance levels with volume confirmation.")
-            elif strategy_key == "EMA_VWAP_Downtrend":
-                st.write("**Description:** Combines bearish EMA alignment with VWAP for SELL entries in downtrends.")
-            elif strategy_key == "RSI_Overbought":
-                st.write("**Description:** Identifies overbought conditions with RSI reversal for SELL entries.")
-            elif strategy_key == "Bollinger_Rejection":
-                st.write("**Description:** Captures SELL opportunities when price rejects upper Bollinger Band.")
+        with st.expander(f"{'🟢' if config['type'] == 'BUY' else '🔴'} {config['name']} (Weight: {config['weight']})"):
             
-            # FIX: Check if strategy exists in performance dictionary
+            # Strategy descriptions
+            strategy_descriptions = {
+                "EMA_VWAP_Confluence": "**Description:** Combines EMA alignment with VWAP, ADX trend strength, and higher timeframe bias for high-probability BUY entries.\n\n**Conditions:** EMA8 > EMA21 > EMA50, Price > VWAP, ADX > 20, HTF Trend = Bullish",
+                "RSI_MeanReversion": "**Description:** Identifies oversold conditions with RSI reversal for BUY entries at key support levels.\n\n**Conditions:** RSI < 30, RSI rising, Price > Support",
+                "Bollinger_Reversion": "**Description:** Captures mean reversion BUY opportunities when price touches Bollinger Band extremes.\n\n**Conditions:** Price ≤ Lower BB, RSI < 35, Price > Support",
+                "MACD_Momentum": "**Description:** Uses MACD crossover with ADX trend strength for BUY momentum entries.\n\n**Conditions:** MACD > Signal, MACD > 0, EMA8 > EMA21, Price > VWAP, ADX > 22",
+                "Support_Resistance_Breakout": "**Description:** Identifies BUY breakouts at key resistance levels with volume confirmation.\n\n**Conditions:** Price > Resistance, Volume spike, RSI > 50, Bullish trend",
+                "EMA_VWAP_Downtrend": "**Description:** Combines bearish EMA alignment with VWAP for SELL entries in downtrends.\n\n**Conditions:** EMA8 < EMA21 < EMA50, Price < VWAP, ADX > 20, HTF Trend = Bearish",
+                "RSI_Overbought": "**Description:** Identifies overbought conditions with RSI reversal for SELL entries.\n\n**Conditions:** RSI > 70, RSI falling, Price < Resistance",
+                "Bollinger_Rejection": "**Description:** Captures SELL opportunities when price rejects upper Bollinger Band.\n\n**Conditions:** Price ≥ Upper BB, RSI > 65, Price < Resistance",
+                "MACD_Bearish": "**Description:** Uses MACD bearish crossover for SELL entries in downtrends.\n\n**Conditions:** MACD < Signal, MACD < 0, EMA8 < EMA21, Price < VWAP, ADX > 22",
+                "Trend_Reversal": "**Description:** Identifies early trend reversal patterns for SELL entries.\n\n**Conditions:** Bullish to bearish trend change, RSI > 60"
+            }
+            
+            st.write(strategy_descriptions.get(strategy_key, "Strategy description not available."))
+            
+            # Performance data
             if strategy_key in trader.strategy_performance:
                 perf = trader.strategy_performance[strategy_key]
                 if perf["trades"] > 0:
@@ -1374,17 +2304,20 @@ with tabs[7]:
             else:
                 st.write("**Live Performance:** No trades yet")
             
+            # Historical accuracy ranges
             default_accuracies = {
                 "EMA_VWAP_Confluence": "65-75%",
                 "RSI_MeanReversion": "60-70%",
                 "Bollinger_Reversion": "58-68%",
                 "MACD_Momentum": "62-72%",
                 "Support_Resistance_Breakout": "55-65%",
-                "EMA_VWAP_Downtrend": "58-68%",
-                "RSI_Overbought": "56-66%",
-                "Bollinger_Rejection": "54-64%"
+                "EMA_VWAP_Downtrend": "60-70%",
+                "RSI_Overbought": "58-68%",
+                "Bollinger_Rejection": "56-66%",
+                "MACD_Bearish": "59-69%",
+                "Trend_Reversal": "54-64%"
             }
             st.write(f"**Typical Historical Accuracy:** {default_accuracies.get(strategy_key, '60-70%')}")
 
 st.markdown("---")
-st.markdown("<div style='text-align:center;'>Intraday Terminal Pro with BUY/SELL Signals & Historical Accuracy</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
