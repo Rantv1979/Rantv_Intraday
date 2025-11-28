@@ -20,7 +20,7 @@ MAX_DAILY_TRADES = 10
 MAX_STOCK_TRADES = 10
 MAX_AUTO_TRADES = 10
 
-SIGNAL_REFRESH_MS = 120000
+SIGNAL_REFRESH_MS = 90000
 PRICE_REFRESH_MS = 60000
 
 MARKET_OPTIONS = ["CASH", "MIDCAP"]
@@ -1877,7 +1877,7 @@ with tabs[1]:
                         st.write(f"✓ {msg}")
             
             st.subheader("Manual Execution")
-            for s in signals:
+            for i, s in enumerate(signals):  # FIXED: Use enumerate for unique keys
                 col_a, col_b, col_c = st.columns([3,1,1])
                 with col_a:
                     action_color = "🟢" if s["action"] == "BUY" else "🔴"
@@ -1886,7 +1886,8 @@ with tabs[1]:
                     qty = int((trader.cash * TRADE_ALLOC) / s["entry"])
                     st.write(f"Qty: {qty}")
                 with col_c:
-                    if st.button(f"Execute", key=f"exec_{s['symbol']}_{s['strategy']}"):
+                    # FIXED: Use unique key with index to prevent duplicates
+                    if st.button(f"Execute", key=f"exec_{i}_{s['symbol']}_{s['strategy']}"):
                         success, msg = trader.execute_trade(
                             symbol=s["symbol"], action=s["action"], quantity=qty, price=s["entry"],
                             stop_loss=s["stop_loss"], target=s["target"], win_probability=s.get("win_probability",0.75),
@@ -1894,6 +1895,7 @@ with tabs[1]:
                         )
                         if success:
                             st.success(msg)
+                            st.rerun()  # Refresh to update the interface
         else:
             st.info("No confirmed signals with current filters.")
 
@@ -1984,11 +1986,13 @@ with tabs[2]:
                     success, msg = trader.close_position(symbol)
                     if success:
                         st.success(msg)
+                        st.rerun()
         
         if st.button("Close All Positions", type="primary", use_container_width=True):
             for sym in list(trader.positions.keys()):
                 trader.close_position(sym)
             st.success("All positions closed!")
+            st.rerun()
     else:
         st.info("No open positions.")
 
@@ -2336,4 +2340,3 @@ with tabs[7]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
-
