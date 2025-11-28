@@ -1209,51 +1209,59 @@ class MultiStrategyIntradayTrader:
         return True, f"Closed {symbol} @ ₹{exit_price:.2f} | P&L: ₹{pnl:+.2f}"
 
     def get_open_positions_data(self):
-        self.update_positions_pnl()
-        out = []
-        for symbol, pos in self.positions.items():
-            if pos.get("status") != "OPEN":
-                continue
-            try:
-                data = data_manager.get_stock_data(symbol, "5m")
-                price = float(data["Close"].iloc[-1]) if data is not None and len(data) > 0 else pos["entry_price"]
-                if pos["action"] == "BUY":
-                    pnl = (price - pos["entry_price"]) * pos["quantity"]
-                else:
-                    pnl = (pos["entry_price"] - price) * pos["quantity"]
-                var = ((price - pos["entry_price"]) / pos["entry_price"]) * 100
-                sup, res = self.calculate_support_resistance(symbol, price)
-                
-                strategy = pos.get("strategy", "Manual")
-                historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy) if strategy != "Manual" else 0.65
-                
-                # Determine win/loss class for highlighting
-                pnl_class = "win-trade" if pnl > 0 else "loss-trade"
-                pnl_display_class = "profit-highlight" if pnl > 0 else "loss-highlight"
-                
-                out.append({
-                    "Symbol": symbol.replace(".NS", ""),
-                    "Action": pos["action"],
-                    "Quantity": pos["quantity"],
-                    "Entry Price": f"₹{pos['entry_price']:.2f}",
-                    "Current Price": f"₹{price:.2f}",
-                    "P&L": f"<span class='{pnl_display_class}'>₹{pnl:+.2f}</span>",
-                    "Variance %": f"{var:+.2f}%",
-                    "Stop Loss": f"₹{pos.get('stop_loss', 0):.2f}",
-                    "Target": f"₹{pos.get('target', 0):.2f}",
-                    "Support": f"₹{sup:.2f}",
-                    "Resistance": f"₹{res:.2f}",
-                    "Historical Win %": f"{historical_accuracy:.1%}",
-                    "Current Win %": f"{pos.get('win_probability', 0.75)*100:.1f}%",
-                    "Entry Time": pos.get("entry_time"),
-                    "Auto Trade": "Yes" if pos.get("auto_trade") else "No",
-                    "Strategy": strategy,
-                    "Status": pos.get("status"),
-                    "_row_class": pnl_class
-                })
-            except Exception:
-                continue
-        return out
+    self.update_positions_pnl()
+    out = []
+    for symbol, pos in self.positions.items():
+        if pos.get("status") != "OPEN":
+            continue
+        try:
+            data = data_manager.get_stock_data(symbol, "5m")
+            price = float(data["Close"].iloc[-1]) if data is not None and len(data) > 0 else pos["entry_price"]
+            if pos["action"] == "BUY":
+                pnl = (price - pos["entry_price"]) * pos["quantity"]
+            else:
+                pnl = (pos["entry_price"] - price) * pos["quantity"]
+            var = ((price - pos["entry_price"]) / pos["entry_price"]) * 100
+            sup, res = self.calculate_support_resistance(symbol, price)
+            
+            strategy = pos.get("strategy", "Manual")
+            historical_accuracy = data_manager.get_historical_accuracy(symbol, strategy) if strategy != "Manual" else 0.65
+            
+            # FIXED: Proper win/loss classification
+            if pnl > 0:
+                pnl_class = "win-trade"
+                pnl_display_class = "profit-highlight"
+            elif pnl < 0:
+                pnl_class = "loss-trade" 
+                pnl_display_class = "loss-highlight"
+            else:
+                # Zero P&L - neutral/no classification
+                pnl_class = ""
+                pnl_display_class = ""
+            
+            out.append({
+                "Symbol": symbol.replace(".NS", ""),
+                "Action": pos["action"],
+                "Quantity": pos["quantity"],
+                "Entry Price": f"₹{pos['entry_price']:.2f}",
+                "Current Price": f"₹{price:.2f}",
+                "P&L": f"<span class='{pnl_display_class}'>₹{pnl:+.2f}</span>" if pnl_display_class else f"₹{pnl:+.2f}",
+                "Variance %": f"{var:+.2f}%",
+                "Stop Loss": f"₹{pos.get('stop_loss', 0):.2f}",
+                "Target": f"₹{pos.get('target', 0):.2f}",
+                "Support": f"₹{sup:.2f}",
+                "Resistance": f"₹{res:.2f}",
+                "Historical Win %": f"{historical_accuracy:.1%}",
+                "Current Win %": f"{pos.get('win_probability', 0.75)*100:.1f}%",
+                "Entry Time": pos.get("entry_time"),
+                "Auto Trade": "Yes" if pos.get("auto_trade") else "No",
+                "Strategy": strategy,
+                "Status": pos.get("status"),
+                "_row_class": pnl_class
+            })
+        except Exception:
+            continue
+    return out
 
     def get_trade_history_data(self):
         """Get formatted trade history data for display"""
@@ -2347,3 +2355,4 @@ with tabs[7]:
 
 st.markdown("---")
 st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with BUY/SELL Signals & Market Analysis</div>", unsafe_allow_html=True)
+
