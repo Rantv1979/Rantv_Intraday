@@ -45,7 +45,7 @@ warnings.filterwarnings("ignore")
 class AppConfig:
     database_url: str = 'sqlite:///trading_journal.db'
     risk_tolerance: str = 'MODERATE'
-    max_daily_loss: float = 50000.0
+    max_daily_loss: float = 25000.0
     enable_ml: bool = True
     
     @classmethod
@@ -59,7 +59,7 @@ st.set_page_config(page_title="Rantv Intraday Terminal Pro - Enhanced", layout="
 IND_TZ = pytz.timezone("Asia/Kolkata")
 
 # Trading Constants
-CAPITAL = 2_000_000.0
+CAPITAL = 1_000_000.0
 TRADE_ALLOC = 0.15
 MAX_DAILY_TRADES = 15
 MAX_STOCK_TRADES = 10
@@ -399,7 +399,7 @@ st.markdown("""
 
 # NEW: Advanced Risk Management System
 class AdvancedRiskManager:
-    def __init__(self, max_daily_loss=50000):
+    def __init__(self, max_daily_loss=25000):
         self.max_daily_loss = max_daily_loss
         self.daily_pnl = 0.0
         self.position_sizing_enabled = True
@@ -2597,7 +2597,7 @@ try:
         risk_cols = st.columns(3)
         with risk_cols[0]:
             daily_pnl = trader.data_manager.risk_manager.daily_pnl
-            pnl_status = "Within Limits" if daily_pnl > -50000 else "Approaching Limit"
+            pnl_status = "Within Limits" if daily_pnl > -25000 else "Approaching Limit"
             st.metric("Daily P&L", f"₹{daily_pnl:+.2f}", pnl_status)
         with risk_cols[1]:
             diversification = trader.data_manager.portfolio_optimizer.calculate_diversification_score(trader.positions)
@@ -2807,4 +2807,5 @@ except Exception as e:
     st.error(f"Application error: {str(e)}")
     st.info("Please refresh the page and try again")
     logger.error(f"Application crash: {e}")
+
 
