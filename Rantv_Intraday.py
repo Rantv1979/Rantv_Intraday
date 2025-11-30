@@ -2509,7 +2509,7 @@ try:
     trader.selected_market = st.sidebar.selectbox("Market Type", MARKET_OPTIONS)
     
     # NEW: Universe Selection with Midcap
-    universe = st.sidebar.selectbox("Trading Universe", ["Nifty 50", "Nifty 100", "Midcap 150"])
+    universe = st.sidebar.selectbox("Trading Universe", ["All stocks","Nifty 50", "Nifty 100", "Midcap 150"])
     
     trader.auto_execution = st.sidebar.checkbox("Auto Execution", value=False)
     
@@ -2807,3 +2807,4 @@ except Exception as e:
     st.error(f"Application error: {str(e)}")
     st.info("Please refresh the page and try again")
     logger.error(f"Application crash: {e}")
+
