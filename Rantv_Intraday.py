@@ -457,6 +457,21 @@ st.markdown("""
         color: #dc2626;
         font-weight: bold;
     }
+    
+    /* Auto-execution Status */
+    .auto-exec-active {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        padding: 10px;
+        border-radius: 8px;
+        border-left: 4px solid #059669;
+    }
+    
+    .auto-exec-inactive {
+        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+        padding: 10px;
+        border-radius: 8px;
+        border-left: 4px solid #6b7280;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1395,6 +1410,7 @@ class MultiStrategyIntradayTrader:
         self.auto_execution = False
         self.signal_history = []
         self.auto_close_triggered = False
+        self.last_auto_execution_time = 0
         
         # Initialize strategy performance for ALL strategies
         self.strategy_performance = {}
@@ -1423,9 +1439,13 @@ class MultiStrategyIntradayTrader:
             self.last_reset = current_date
 
     def can_auto_trade(self):
-        return (self.auto_trades_count < MAX_AUTO_TRADES and 
-                self.daily_trades < MAX_DAILY_TRADES and
-                market_open())
+        """Check if auto trading is allowed"""
+        can_trade = (
+            self.auto_trades_count < MAX_AUTO_TRADES and 
+            self.daily_trades < MAX_DAILY_TRADES and
+            market_open()
+        )
+        return can_trade
 
     def calculate_support_resistance(self, symbol, current_price):
         try:
@@ -2212,12 +2232,23 @@ class MultiStrategyIntradayTrader:
         return signals[:20]
 
     def auto_execute_signals(self, signals):
+        """Auto-execute signals with enhanced feedback"""
         executed = []
-        for signal in signals[:10]:
+        
+        if not self.can_auto_trade():
+            st.warning(f"⚠️ Cannot auto-trade. Check: Daily trades: {self.daily_trades}/{MAX_DAILY_TRADES}, Auto trades: {self.auto_trades_count}/{MAX_AUTO_TRADES}, Market open: {market_open()}")
+            return executed
+        
+        st.info(f"🚀 Attempting to auto-execute {len(signals[:10])} signals...")
+        
+        for signal in signals[:10]:  # Limit to first 10 signals
             if not self.can_auto_trade():
+                st.warning("Auto-trade limit reached")
                 break
+                
             if signal["symbol"] in self.positions:
-                continue
+                st.info(f"Skipping {signal['symbol']} - already in position")
+                continue  # Skip if already in position
                 
             # NEW: Enhanced position sizing with Kelly Criterion
             try:
@@ -2249,6 +2280,13 @@ class MultiStrategyIntradayTrader:
                 )
                 if success:
                     executed.append(msg)
+                    st.toast(f"✅ Auto-executed: {msg}", icon="🚀")
+                else:
+                    st.toast(f"❌ Auto-execution failed: {msg}", icon="⚠️")
+            else:
+                st.info(f"Skipping {signal['symbol']} - position size calculation failed")
+        
+        self.last_auto_execution_time = time.time()
         return executed
 
 # NEW: Alert Creation Interface
@@ -2452,6 +2490,52 @@ try:
         </div>
         """, unsafe_allow_html=True)
 
+    # NEW: Auto-Execution Status Panel
+    st.subheader("🚀 Auto-Execution Status")
+    
+    auto_status_cols = st.columns(4)
+    with auto_status_cols[0]:
+        status_class = "auto-exec-active" if trader.auto_execution else "auto-exec-inactive"
+        status_text = "🟢 ACTIVE" if trader.auto_execution else "⚪ INACTIVE"
+        st.markdown(f"""
+        <div class="{status_class}">
+            <div style="font-size: 14px; font-weight: bold;">Auto Execution</div>
+            <div style="font-size: 16px; margin-top: 5px;">{status_text}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with auto_status_cols[1]:
+        can_trade = trader.can_auto_trade()
+        trade_status = "✅ READY" if can_trade else "⏸️ PAUSED"
+        trade_class = "auto-exec-active" if can_trade else "auto-exec-inactive"
+        st.markdown(f"""
+        <div class="{trade_class}">
+            <div style="font-size: 14px; font-weight: bold;">Trade Status</div>
+            <div style="font-size: 16px; margin-top: 5px;">{trade_status}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with auto_status_cols[2]:
+        market_status = "🟢 OPEN" if market_open() else "🔴 CLOSED"
+        market_class = "auto-exec-active" if market_open() else "auto-exec-inactive"
+        st.markdown(f"""
+        <div class="{market_class}">
+            <div style="font-size: 14px; font-weight: bold;">Market</div>
+            <div style="font-size: 16px; margin-top: 5px;">{market_status}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with auto_status_cols[3]:
+        auto_trades_left = MAX_AUTO_TRADES - trader.auto_trades_count
+        daily_trades_left = MAX_DAILY_TRADES - trader.daily_trades
+        st.markdown(f"""
+        <div class="metric-card">
+            <div style="font-size: 12px; color: #6b7280;">Auto Trades Left</div>
+            <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">{auto_trades_left}/{MAX_AUTO_TRADES}</div>
+            <div style="font-size: 11px; margin-top: 3px;">Daily Trades: {daily_trades_left}/{MAX_DAILY_TRADES}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
     # NEW: High Accuracy Strategies Overview
     st.subheader("🎯 High Accuracy Strategies")
     high_acc_cols = st.columns(len(HIGH_ACCURACY_STRATEGIES))
@@ -2527,6 +2611,30 @@ try:
     max_scan_map = {"All Stocks": None, "Top 40": 40, "Top 20": 20}
     max_scan = max_scan_map[scan_limit]
 
+    # Add debug toggle in sidebar
+    st.sidebar.subheader("🛠️ Debug Settings")
+    debug_mode = st.sidebar.checkbox("Enable Debug Mode", value=False)
+    
+    if debug_mode:
+        st.sidebar.info("Debug Mode Enabled")
+        st.sidebar.write(f"**Trader State:**")
+        st.sidebar.write(f"- Daily trades: {trader.daily_trades}/{MAX_DAILY_TRADES}")
+        st.sidebar.write(f"- Auto trades: {trader.auto_trades_count}/{MAX_AUTO_TRADES}")
+        st.sidebar.write(f"- Stock trades: {trader.stock_trades}/{MAX_STOCK_TRADES}")
+        st.sidebar.write(f"- Auto execution: {trader.auto_execution}")
+        st.sidebar.write(f"- Can auto-trade: {trader.can_auto_trade()}")
+        st.sidebar.write(f"- Market open: {market_open()}")
+        st.sidebar.write(f"- Auto close time: {should_auto_close()}")
+        st.sidebar.write(f"- Open positions: {len(trader.positions)}")
+        st.sidebar.write(f"- Available cash: ₹{trader.cash:,.0f}")
+        
+        # Auto-execution checks
+        st.sidebar.write(f"**Auto-execution Checks:**")
+        st.sidebar.write(f"- Auto trades < MAX: {trader.auto_trades_count} < {MAX_AUTO_TRADES} = {trader.auto_trades_count < MAX_AUTO_TRADES}")
+        st.sidebar.write(f"- Daily trades < MAX: {trader.daily_trades} < {MAX_DAILY_TRADES} = {trader.daily_trades < MAX_DAILY_TRADES}")
+        st.sidebar.write(f"- Market open: {market_open()}")
+        st.sidebar.write(f"- ALL CHECKS PASS: {trader.can_auto_trade()}")
+
     # Enhanced Tabs with Trade History
     tabs = st.tabs([
         "📈 Dashboard", 
@@ -2601,16 +2709,50 @@ try:
     # Tab 2: Signals
     with tabs[1]:
         st.subheader("Multi-Strategy BUY/SELL Signals")
-        col1, col2 = st.columns([1, 2])
+        col1, col2, col3 = st.columns([1, 2, 1])
         with col1:
             generate_btn = st.button("Generate Signals", type="primary", use_container_width=True)
         with col2:
             if trader.auto_execution:
-                st.success("🔴 Auto Execution: ACTIVE")
+                auto_status = "🟢 ACTIVE"
+                status_color = "#059669"
             else:
-                st.info("⚪ Auto Execution: INACTIVE")
-                
-        if generate_btn or trader.auto_execution:
+                auto_status = "⚪ INACTIVE"
+                status_color = "#6b7280"
+            st.markdown(f"""
+            <div class="metric-card">
+                <div style="font-size: 12px; color: #6b7280;">Auto Execution</div>
+                <div style="font-size: 18px; font-weight: bold; color: {status_color};">{auto_status}</div>
+                <div style="font-size: 11px; margin-top: 3px;">Market: {'🟢 OPEN' if market_open() else '🔴 CLOSED'}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            # Add auto-execution button
+            if trader.auto_execution and trader.can_auto_trade():
+                auto_exec_btn = st.button("🚀 Auto Execute", type="secondary", use_container_width=True, help="Manually trigger auto-execution of current signals")
+            else:
+                auto_exec_btn = False
+        
+        # Initialize session state for tracking auto-execution
+        if "auto_execution_triggered" not in st.session_state:
+            st.session_state.auto_execution_triggered = False
+        if "last_signal_generation" not in st.session_state:
+            st.session_state.last_signal_generation = 0
+        
+        # Check if we should auto-generate signals
+        current_time = time.time()
+        auto_generate = False
+        
+        # Auto-generate if:
+        # 1. Auto-execution is enabled AND market is open AND it's been more than 60 seconds since last generation
+        # 2. OR if generate button was clicked
+        if trader.auto_execution and market_open() and (current_time - st.session_state.last_signal_generation > 60):
+            auto_generate = True
+            st.session_state.last_signal_generation = current_time
+        
+        generate_signals = generate_btn or auto_generate
+        
+        if generate_signals:
             with st.spinner(f"Scanning {universe} stocks with enhanced strategies..."):
                 # CHANGED: Always use high accuracy when enabled
                 signals = trader.generate_quality_signals(
@@ -2654,12 +2796,36 @@ try:
                 
                 st.dataframe(pd.DataFrame(data_rows), use_container_width=True)
                 
+                # AUTO-EXECUTION LOGIC
                 if trader.auto_execution and trader.can_auto_trade():
-                    executed = trader.auto_execute_signals(signals)
-                    if executed:
-                        st.success("Auto-execution completed:")
-                        for msg in executed:
-                            st.write(f"✓ {msg}")
+                    # Check if we should auto-execute
+                    auto_execute_now = False
+                    
+                    # Auto-execute if:
+                    # 1. Auto-execution button was clicked
+                    # 2. OR if we have signals and auto-execution is enabled (auto-generate mode)
+                    if auto_exec_btn:
+                        auto_execute_now = True
+                        st.info("🚀 Manual auto-execution triggered")
+                    elif auto_generate:
+                        # Auto-execute based on signals (only high confidence signals)
+                        high_confidence_signals = [s for s in signals if s.get("confidence", 0) >= 0.8 and s.get("score", 0) >= 8]
+                        if high_confidence_signals:
+                            auto_execute_now = True
+                            st.info(f"🚀 Found {len(high_confidence_signals)} high-confidence signals for auto-execution")
+                    
+                    if auto_execute_now:
+                        executed = trader.auto_execute_signals(signals)
+                        if executed:
+                            st.success(f"✅ Auto-execution completed: {len(executed)} trades executed")
+                            for msg in executed:
+                                st.write(f"✓ {msg}")
+                            # Refresh to show new positions
+                            st.rerun()
+                        else:
+                            st.warning("No trades were auto-executed. Check trade limits or existing positions.")
+                    elif trader.auto_execution and not auto_execute_now:
+                        st.info("Auto-execution is active. High-confidence signals will be executed automatically.")
                 
                 st.subheader("Manual Execution")
                 for s in signals[:5]:  # Show only first 5 for better UI
@@ -2671,16 +2837,20 @@ try:
                         st.write(f"{action_color} **{s['symbol'].replace('.NS','')}** - {s['action']} @ ₹{s['entry']:.2f} | Strategy: {strategy_display} | Historical Win: {s.get('historical_accuracy',0.7):.1%} | R:R: {s['risk_reward']:.2f}")
                     with col_b:
                         if kelly_sizing:
-                            qty = trader.data_manager.calculate_optimal_position_size(
-                                s["symbol"], s["win_probability"], s["risk_reward"], 
-                                trader.cash, s["entry"], 
-                                trader.data_manager.get_stock_data(s["symbol"], "15m")["ATR"].iloc[-1]
-                            )
+                            try:
+                                data = trader.data_manager.get_stock_data(s["symbol"], "15m")
+                                atr = data["ATR"].iloc[-1] if "ATR" in data.columns else s["entry"] * 0.01
+                                qty = trader.data_manager.calculate_optimal_position_size(
+                                    s["symbol"], s["win_probability"], s["risk_reward"], 
+                                    trader.cash, s["entry"], atr
+                                )
+                            except:
+                                qty = int((trader.cash * TRADE_ALLOC) / s["entry"])
                         else:
                             qty = int((trader.cash * TRADE_ALLOC) / s["entry"])
                         st.write(f"Qty: {qty}")
                     with col_c:
-                        if st.button(f"Execute", key=f"exec_{s['symbol']}_{s['strategy']}"):
+                        if st.button(f"Execute", key=f"exec_{s['symbol']}_{s['strategy']}_{int(time.time())}"):
                             success, msg = trader.execute_trade(
                                 symbol=s["symbol"], action=s["action"], quantity=qty, price=s["entry"],
                                 stop_loss=s["stop_loss"], target=s["target"], win_probability=s.get("win_probability",0.75),
@@ -2688,8 +2858,28 @@ try:
                             )
                             if success:
                                 st.success(msg)
+                                st.rerun()
+                            else:
+                                st.error(msg)
             else:
                 st.info("No confirmed signals with current filters.")
+        else:
+            # Show auto-execution status when no signals generated
+            if trader.auto_execution:
+                if market_open():
+                    st.info("🔄 Auto-execution is active. Signals will be generated and executed automatically during market hours.")
+                    st.write(f"**Auto-execution status:**")
+                    st.write(f"- Daily trades: {trader.daily_trades}/{MAX_DAILY_TRADES}")
+                    st.write(f"- Auto trades: {trader.auto_trades_count}/{MAX_AUTO_TRADES}")
+                    st.write(f"- Available cash: ₹{trader.cash:,.0f}")
+                    st.write(f"- Can auto-trade: {'✅ Yes' if trader.can_auto_trade() else '❌ No'}")
+                    
+                    # Show countdown to next auto-scan
+                    time_since_last = int(current_time - st.session_state.last_signal_generation)
+                    time_to_next = max(0, 60 - time_since_last)
+                    st.write(f"- Next auto-scan in: {time_to_next} seconds")
+                else:
+                    st.warning("Market is closed. Auto-execution will resume when market opens (9:15 AM - 3:30 PM).")
 
     # Tab 3: Paper Trading
     with tabs[2]:
