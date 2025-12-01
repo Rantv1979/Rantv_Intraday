@@ -2692,120 +2692,117 @@ try:
                 st.info("No confirmed signals with current filters.")
 
     # Tab 3: Paper Trading
-with tabs[2]:
-    st.subheader("💰 Paper Trading")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        symbol = st.selectbox("Symbol", NIFTY_50[:20], key="paper_symbol")
-    with col2:
-        action = st.selectbox("Action", ["BUY", "SELL"], key="paper_action")
-    with col3:
-        quantity = st.number_input("Quantity", min_value=1, value=10, key="paper_qty")
-    with col4:
-        strategy = st.selectbox("Strategy", ["Manual"] + [config["name"] for config in TRADING_STRATEGIES.values()], key="paper_strategy")
-    
-    if st.button("Execute Paper Trade", type="primary", key="paper_execute"):
-        try:
-            data = data_manager.get_stock_data(symbol, "15m")
-            price = float(data["Close"].iloc[-1])
-            
-            # Calculate support/resistance, ATR for stop loss/target
-            atr = float(data["ATR"].iloc[-1]) if 'ATR' in data.columns else price * 0.01
-            support, resistance = trader.calculate_support_resistance(symbol, price)
-            
-            # Calculate stop loss and target
-            target, stop_loss = trader.calculate_intraday_target_sl(
-                price, action, atr, price, support, resistance
-            )
-            
-            # Get strategy key
-            strategy_key = "Manual"
-            for key, config in TRADING_STRATEGIES.items():
-                if config["name"] == strategy:
-                    strategy_key = key
-                    break
-            
-            # Execute the trade
-            success, msg = trader.execute_trade(
-                symbol=symbol,
-                action=action,
-                quantity=quantity,
-                price=price,
-                stop_loss=stop_loss,
-                target=target,
-                win_probability=0.75,  # Default probability
-                auto_trade=False,
-                strategy=strategy_key
-            )
-            
-            if success:
-                st.success(f"✅ {msg}")
-                st.success(f"Stop Loss: ₹{stop_loss:.2f} | Target: ₹{target:.2f}")
-                st.rerun()
-            else:
-                st.error(f"❌ {msg}")
-                
-        except Exception as e:
-            st.error(f"Trade execution failed: {str(e)}")
-            st.error(f"Full error: {traceback.format_exc()}")
-    
-    # Show current positions
-    st.subheader("Current Positions")
-    positions_df = trader.get_open_positions_data()
-    if positions_df:
-        # Create a better display with action buttons
-        for pos in positions_df:
-            col1, col2, col3 = st.columns([3, 1, 1])
-            with col1:
-                # Use card styling for better visibility
-                action_color = "🟢" if pos['Action'] == 'BUY' else "🔴"
-                pnl_text = pos['P&L']
-                pnl_value = float(pnl_text.replace('₹', '').replace('+', '').replace(',', ''))
-                pnl_color = "green" if pnl_value >= 0 else "red"
-                
-                st.markdown(f"""
-                <div style="padding: 10px; border-left: 4px solid {'#059669' if pos['Action'] == 'BUY' else '#dc2626'}; 
-                         background: linear-gradient(135deg, {'#d1fae5' if pos['Action'] == 'BUY' else '#fee2e2'} 0%, 
-                         {'#a7f3d0' if pos['Action'] == 'BUY' else '#fecaca'} 100%); border-radius: 8px;">
-                    <strong>{action_color} {pos['Symbol']}</strong> | {pos['Action']} | Qty: {pos['Quantity']}<br>
-                    Entry: {pos['Entry Price']} | Current: {pos['Current Price']}<br>
-                    <span style="color: {pnl_color}">{pnl_text}</span> | {pos['Variance %']}
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                # Show stop loss and target
-                st.write(f"SL: {pos['Stop Loss']}")
-                st.write(f"TG: {pos['Target']}")
-            
-            with col3:
-                if st.button(f"Close", key=f"close_{pos['Symbol']}", type="secondary"):
-                    success, msg = trader.close_position(f"{pos['Symbol']}.NS")
-                    if success:
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
+    with tabs[2]:
+        st.subheader("💰 Paper Trading")
         
-        # Also show as dataframe
-        st.dataframe(pd.DataFrame(positions_df), use_container_width=True)
-    else:
-        st.info("No open positions")
-    
-    # Performance stats
-    st.subheader("Performance Statistics")
-    perf = trader.get_performance_stats()
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Trades", perf['total_trades'])
-    with col2:
-        st.metric("Win Rate", f"{perf['win_rate']:.1%}")
-    with col3:
-        st.metric("Total P&L", f"₹{perf['total_pnl']:+.2f}")
-    with col4:
-        st.metric("Open P&L", f"₹{perf['open_pnl']:+.2f}")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            symbol = st.selectbox("Symbol", NIFTY_50[:20], key="paper_symbol")
+        with col2:
+            action = st.selectbox("Action", ["BUY", "SELL"], key="paper_action")
+        with col3:
+            quantity = st.number_input("Quantity", min_value=1, value=10, key="paper_qty")
+        with col4:
+            strategy = st.selectbox("Strategy", ["Manual"] + [config["name"] for config in TRADING_STRATEGIES.values()], key="paper_strategy")
+        
+        if st.button("Execute Paper Trade", type="primary", key="paper_execute"):
+            try:
+                data = data_manager.get_stock_data(symbol, "15m")
+                price = float(data["Close"].iloc[-1])
+                
+                # Calculate support/resistance, ATR for stop loss/target
+                atr = float(data["ATR"].iloc[-1]) if 'ATR' in data.columns else price * 0.01
+                support, resistance = trader.calculate_support_resistance(symbol, price)
+                
+                # Calculate stop loss and target
+                target, stop_loss = trader.calculate_intraday_target_sl(
+                    price, action, atr, price, support, resistance
+                )
+                
+                # Get strategy key
+                strategy_key = "Manual"
+                for key, config in TRADING_STRATEGIES.items():
+                    if config["name"] == strategy:
+                        strategy_key = key
+                        break
+                
+                # Execute the trade
+                success, msg = trader.execute_trade(
+                    symbol=symbol,
+                    action=action,
+                    quantity=quantity,
+                    price=price,
+                    stop_loss=stop_loss,
+                    target=target,
+                    win_probability=0.75,
+                    auto_trade=False,
+                    strategy=strategy_key
+                )
+                
+                if success:
+                    st.success(f"✅ {msg}")
+                    st.success(f"Stop Loss: ₹{stop_loss:.2f} | Target: ₹{target:.2f}")
+                    st.rerun()
+                else:
+                    st.error(f"❌ {msg}")
+                    
+            except Exception as e:
+                st.error(f"Trade execution failed: {str(e)}")
+                st.error(f"Full error: {traceback.format_exc()}")
+        
+        # Show current positions
+        st.subheader("Current Positions")
+        positions_df = trader.get_open_positions_data()
+        if positions_df:
+            # Create a better display with action buttons
+            for pos in positions_df:
+                col1, col2, col3 = st.columns([3, 1, 1])
+                with col1:
+                    action_color = "🟢" if pos['Action'] == 'BUY' else "🔴"
+                    pnl_text = pos['P&L']
+                    pnl_value = float(pnl_text.replace('₹', '').replace('+', '').replace(',', ''))
+                    pnl_color = "green" if pnl_value >= 0 else "red"
+                    
+                    st.markdown(f"""
+                    <div style="padding: 10px; border-left: 4px solid {'#059669' if pos['Action'] == 'BUY' else '#dc2626'}; 
+                             background: linear-gradient(135deg, {'#d1fae5' if pos['Action'] == 'BUY' else '#fee2e2'} 0%, 
+                             {'#a7f3d0' if pos['Action'] == 'BUY' else '#fecaca'} 100%); border-radius: 8px;">
+                        <strong>{action_color} {pos['Symbol']}</strong> | {pos['Action']} | Qty: {pos['Quantity']}<br>
+                        Entry: {pos['Entry Price']} | Current: {pos['Current Price']}<br>
+                        <span style="color: {pnl_color}">{pnl_text}</span> | {pos['Variance %']}
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    st.write(f"SL: {pos['Stop Loss']}")
+                    st.write(f"TG: {pos['Target']}")
+                
+                with col3:
+                    if st.button(f"Close", key=f"close_{pos['Symbol']}", type="secondary"):
+                        success, msg = trader.close_position(f"{pos['Symbol']}.NS")
+                        if success:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+            
+            st.dataframe(pd.DataFrame(positions_df), use_container_width=True)
+        else:
+            st.info("No open positions")
+        
+        # Performance stats
+        st.subheader("Performance Statistics")
+        perf = trader.get_performance_stats()
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Trades", perf['total_trades'])
+        with col2:
+            st.metric("Win Rate", f"{perf['win_rate']:.1%}")
+        with col3:
+            st.metric("Total P&L", f"₹{perf['total_pnl']:+.2f}")
+        with col4:
+            st.metric("Open P&L", f"₹{perf['open_pnl']:+.2f}")
 
     # Tab 4: Trade History
     with tabs[3]:
@@ -3136,6 +3133,3 @@ except Exception as e:
     st.info("Please refresh the page and try again")
     logger.error(f"Application crash: {e}")
     st.code(traceback.format_exc())
-
-
-
