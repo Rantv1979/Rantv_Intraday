@@ -145,7 +145,55 @@ NIFTY_MIDCAP_150 = [
 ]
 
 # COMBINED ALL STOCKS - NEW UNIVERSES
-ALL_STOCKS = list(set(NIFTY_50 + NIFTY_100 + NIFTY_MIDCAP_150))
+
+# --- BEGIN: Universe Sanitizer (automatically inserted) ---
+# This block validates tickers via yfinance and removes invalid/demo tickers
+import yfinance as _yf
+_valid_symbols = []
+_removed_symbols = []
+def _is_valid_ticker(sym):
+    try:
+        # quick check: download small history
+        df = _yf.download(sym, period="5d", interval="1d", progress=False, threads=False)
+        if df is None or df.empty:
+            return False
+        return True
+    except Exception:
+        return False
+
+# Validate NIFTY_50, NIFTY_100, NIFTY_MIDCAP_150 and sanitize symbols
+def _sanitize_universe(list_in):
+    out_list = []
+    for s in list_in:
+        # ensure .NS suffix
+        if not s.endswith(".NS"):
+            s = s.replace(" ", "").upper() + ".NS"
+        # Remove obviously malformed tickers
+        if any(c in s for c in ['#', '@']):
+            _removed_symbols.append(s)
+            continue
+        if _is_valid_ticker(s):
+            out_list.append(s)
+        else:
+            _removed_symbols.append(s)
+    return out_list
+
+NIFTY_50 = _sanitize_universe(NIFTY_50)
+NIFTY_100 = _sanitize_universe(NIFTY_100)
+NIFTY_MIDCAP_150 = _sanitize_universe(NIFTY_MIDCAP_150)
+
+# Rebuild ALL_STOCKS from the sanitized lists only (no demo stocks)
+ALL_STOCKS = list(dict.fromkeys(NIFTY_50 + NIFTY_100 + NIFTY_MIDCAP_150))
+
+# If any tickers were removed, log them once so user knows which ones were dropped
+if _removed_symbols:
+    try:
+        import streamlit as _st
+        _st.warning(f\"Removed invalid/unresolved tickers from universes: {', '.join(_removed_symbols)}\")
+    except Exception:
+        print(\"Removed invalid/unresolved tickers:\", ', '.join(_removed_symbols))
+# --- END: Universe Sanitizer ---
+
 
 # Enhanced Trading Strategies with Better Balance - ALL STRATEGIES ENABLED
 TRADING_STRATEGIES = {
