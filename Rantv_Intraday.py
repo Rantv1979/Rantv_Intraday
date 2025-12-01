@@ -146,44 +146,43 @@ NIFTY_MIDCAP_150 = [
 
 # COMBINED ALL STOCKS - NEW UNIVERSES
 
-# --- BEGIN: Static Universe Sanitizer (safe, no external queries) ---
+# --- BEGIN: Static Universe Sanitizer (Safe / No yfinance calls) ---
 import re as _re
-def _sanitize_list(lst):
-    good = []
+def _clean_list(lst):
+    clean = []
     removed = []
     for s in lst:
         if not isinstance(s, str):
             continue
-        s0 = s.strip().upper()
-        if not s0.endswith('.NS'):
-            s0 = s0.replace(' ', '').upper() + '.NS'
-        # Basic allowed pattern (letters, numbers, dot, hyphen)
-        if _re.match(r'^[A-Z0-9\.\-]+$', s0):
-            # Reject clearly malformed symbols
-            if '&' in s0 or ',' in s0 or '#' in s0:
-                removed.append(s0)
-                continue
-            good.append(s0)
+        t = s.strip().upper()
+        if not t.endswith(".NS"):
+            t = t.replace(" ", "").upper() + ".NS"
+        if _re.match(r"^[A-Z0-9\.\-]+$", t) and "&" not in t and "#" not in t and "@" not in t:
+            clean.append(t)
         else:
-            removed.append(s0)
-    # preserve order & uniqueness
-    seen = set(); out = []
-    for g in good:
-        if g not in seen:
-            out.append(g); seen.add(g)
-    return out, removed
+            removed.append(t)
+    # keep order, remove duplicates
+    final = []
+    seen = set()
+    for c in clean:
+        if c not in seen:
+            final.append(c)
+            seen.add(c)
+    return final, removed
 
-_N50, _r1 = _sanitize_list(NIFTY_50)
-_N100, _r2 = _sanitize_list(NIFTY_100)
-_NMID, _r3 = _sanitize_list(NIFTY_MIDCAP_150)
-ALL_STOCKS = list(dict.fromkeys(_N50 + _N100 + _NMID))
-_removed_symbols = _r1 + _r2 + _r3
-if _removed_symbols:
+NIFTY_50, bad1 = _clean_list(NIFTY_50)
+NIFTY_100, bad2 = _clean_list(NIFTY_100)
+NIFTY_MIDCAP_150, bad3 = _clean_list(NIFTY_MIDCAP_150)
+
+ALL_STOCKS = list(dict.fromkeys(NIFTY_50 + NIFTY_100 + NIFTY_MIDCAP_150))
+
+_removed = bad1 + bad2 + bad3
+if _removed:
     try:
         import streamlit as _st
-        _st.warning(\"Removed invalid/unresolved tickers from universes: \" + \", \".join(_removed_symbols))
-    except Exception:
-        print(\"Removed invalid/unresolved tickers:\", \", \".join(_removed_symbols))
+        _st.warning("Removed invalid tickers: " + ", ".join(_removed))
+    except:
+        print("Removed invalid tickers:", ", ".join(_removed))
 # --- END: Static Universe Sanitizer ---
 
 
@@ -610,7 +609,7 @@ class MLSignalEnhancer:
             features = pd.DataFrame()
             
             # Technical indicators as features
-            features['rsi'] = data['RSI14'].iloc[-1] if 'RSI14' in data.columns and len(data['RSI14'].dropna())>0 else 50.0 if 'RSI14' in data.columns else 50
+            features['rsi'] = (data['RSI14'].iloc[-1] if 'RSI14' in data and data['RSI14'].dropna().shape[0] > 0 else 50.0) if 'RSI14' in data.columns else 50
             features['macd_signal_diff'] = (data['MACD'].iloc[-1] - data['MACD_Signal'].iloc[-1] 
                                           if all(col in data.columns for col in ['MACD', 'MACD_Signal']) else 0)
             
@@ -712,7 +711,7 @@ class MarketRegimeDetector:
             # Calculate regime indicators
             adx_value = nifty_data['ADX'].iloc[-1] if 'ADX' in nifty_data.columns else 20
             volatility = nifty_data['Close'].pct_change().std() * 100 if len(nifty_data) > 1 else 1.0
-            rsi_val = nifty_data['RSI14'].iloc[-1] if 'RSI14' in data.columns and len(data['RSI14'].dropna())>0 else 50.0 if 'RSI14' in nifty_data.columns else 50
+            rsi_val = nifty_(data['RSI14'].iloc[-1] if 'RSI14' in data and data['RSI14'].dropna().shape[0] > 0 else 50.0) if 'RSI14' in nifty_data.columns else 50
             
             # Determine regime
             if adx_value > 25 and volatility < 1.2:
@@ -3142,7 +3141,7 @@ try:
                     for symbol in NIFTY_50[:30]:
                         data = data_manager.get_stock_data(symbol, "15m")
                         if len(data) > 0:
-                            rsi_val = float(data['RSI14'].iloc[-1] if 'RSI14' in data.columns and len(data['RSI14'].dropna())>0 else 50.0) if 'RSI14' in data.columns and len(data['RSI14'].dropna())>0 else 50.0
+                            rsi_val = (data['RSI14'].iloc[-1] if 'RSI14' in data and data['RSI14'].dropna().shape[0] > 0 else 50.0)
                             price = data['Close'].iloc[-1]
                             
                             if rsi_val < 30:
