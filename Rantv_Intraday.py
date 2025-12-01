@@ -146,53 +146,45 @@ NIFTY_MIDCAP_150 = [
 
 # COMBINED ALL STOCKS - NEW UNIVERSES
 
-# --- BEGIN: Universe Sanitizer (automatically inserted) ---
-# This block validates tickers via yfinance and removes invalid/demo tickers
-import yfinance as _yf
-_valid_symbols = []
-_removed_symbols = []
-def _is_valid_ticker(sym):
-    try:
-        # quick check: download small history
-        df = _yf.download(sym, period="5d", interval="1d", progress=False, threads=False)
-        if df is None or df.empty:
-            return False
-        return True
-    except Exception:
-        return False
-
-# Validate NIFTY_50, NIFTY_100, NIFTY_MIDCAP_150 and sanitize symbols
-def _sanitize_universe(list_in):
-    out_list = []
-    for s in list_in:
-        # ensure .NS suffix
-        if not s.endswith(".NS"):
-            s = s.replace(" ", "").upper() + ".NS"
-        # Remove obviously malformed tickers
-        if any(c in s for c in ['#', '@']):
-            _removed_symbols.append(s)
+# --- BEGIN: Static Universe Sanitizer (safe, no external queries) ---
+import re as _re
+def _sanitize_list(lst):
+    good = []
+    removed = []
+    for s in lst:
+        if not isinstance(s, str):
             continue
-        if _is_valid_ticker(s):
-            out_list.append(s)
+        s0 = s.strip().upper()
+        if not s0.endswith('.NS'):
+            s0 = s0.replace(' ', '').upper() + '.NS'
+        # Basic allowed pattern (letters, numbers, dot, hyphen)
+        if _re.match(r'^[A-Z0-9\.\-]+$', s0):
+            # Reject clearly malformed symbols
+            if '&' in s0 or ',' in s0 or '#' in s0:
+                removed.append(s0)
+                continue
+            good.append(s0)
         else:
-            _removed_symbols.append(s)
-    return out_list
+            removed.append(s0)
+    # preserve order & uniqueness
+    seen = set(); out = []
+    for g in good:
+        if g not in seen:
+            out.append(g); seen.add(g)
+    return out, removed
 
-NIFTY_50 = _sanitize_universe(NIFTY_50)
-NIFTY_100 = _sanitize_universe(NIFTY_100)
-NIFTY_MIDCAP_150 = _sanitize_universe(NIFTY_MIDCAP_150)
-
-# Rebuild ALL_STOCKS from the sanitized lists only (no demo stocks)
-ALL_STOCKS = list(dict.fromkeys(NIFTY_50 + NIFTY_100 + NIFTY_MIDCAP_150))
-
-# If any tickers were removed, log them once so user knows which ones were dropped
+_N50, _r1 = _sanitize_list(NIFTY_50)
+_N100, _r2 = _sanitize_list(NIFTY_100)
+_NMID, _r3 = _sanitize_list(NIFTY_MIDCAP_150)
+ALL_STOCKS = list(dict.fromkeys(_N50 + _N100 + _NMID))
+_removed_symbols = _r1 + _r2 + _r3
 if _removed_symbols:
     try:
         import streamlit as _st
-        _st.warning(f\"Removed invalid/unresolved tickers from universes: {', '.join(_removed_symbols)}\")
+        _st.warning(\"Removed invalid/unresolved tickers from universes: \" + \", \".join(_removed_symbols))
     except Exception:
-        print(\"Removed invalid/unresolved tickers:\", ', '.join(_removed_symbols))
-# --- END: Universe Sanitizer ---
+        print(\"Removed invalid/unresolved tickers:\", \", \".join(_removed_symbols))
+# --- END: Static Universe Sanitizer ---
 
 
 # Enhanced Trading Strategies with Better Balance - ALL STRATEGIES ENABLED
@@ -618,7 +610,7 @@ class MLSignalEnhancer:
             features = pd.DataFrame()
             
             # Technical indicators as features
-            features['rsi'] = data['RSI14'].iloc[-1] if 'RSI14' in data.columns else 50
+            features['rsi'] = data['RSI14'].iloc[-1] if 'RSI14' in data.columns and len(data['RSI14'].dropna())>0 else 50.0 if 'RSI14' in data.columns else 50
             features['macd_signal_diff'] = (data['MACD'].iloc[-1] - data['MACD_Signal'].iloc[-1] 
                                           if all(col in data.columns for col in ['MACD', 'MACD_Signal']) else 0)
             
@@ -720,7 +712,7 @@ class MarketRegimeDetector:
             # Calculate regime indicators
             adx_value = nifty_data['ADX'].iloc[-1] if 'ADX' in nifty_data.columns else 20
             volatility = nifty_data['Close'].pct_change().std() * 100 if len(nifty_data) > 1 else 1.0
-            rsi_val = nifty_data['RSI14'].iloc[-1] if 'RSI14' in nifty_data.columns else 50
+            rsi_val = nifty_data['RSI14'].iloc[-1] if 'RSI14' in data.columns and len(data['RSI14'].dropna())>0 else 50.0 if 'RSI14' in nifty_data.columns else 50
             
             # Determine regime
             if adx_value > 25 and volatility < 1.2:
@@ -2452,10 +2444,10 @@ try:
     with col1:
         st.markdown(f"<div style='text-align: left; color: #6b7280; font-size: 14px;'>Refresh Count: <span class='refresh-counter'>{st.session_state.refresh_count}</span></div>", unsafe_allow_html=True)
     with col2:
-        if st.button("🔄 Manual Refresh", use_container_width=True):
+        if st.button("🔄 Manual Refresh", width='stretch'):
             st.rerun()
     with col3:
-        if st.button("📊 Update Prices", use_container_width=True):
+        if st.button("📊 Update Prices", width='stretch'):
             st.rerun()
 
     # Market Mood Gauges for Nifty50 & BankNifty
@@ -2742,7 +2734,7 @@ try:
                     })
         
         if strategy_data:
-            st.dataframe(pd.DataFrame(strategy_data), use_container_width=True)
+            st.dataframe(pd.DataFrame(strategy_data), width='stretch')
         else:
             st.info("No strategy performance data available yet.")
         
@@ -2750,7 +2742,7 @@ try:
         st.subheader("📊 Open Positions")
         open_positions = trader.get_open_positions_data()
         if open_positions:
-            st.dataframe(pd.DataFrame(open_positions), use_container_width=True)
+            st.dataframe(pd.DataFrame(open_positions), width='stretch')
         else:
             st.info("No open positions")
 
@@ -2759,7 +2751,7 @@ try:
         st.subheader("Multi-Strategy BUY/SELL Signals")
         col1, col2, col3 = st.columns([1, 2, 1])
         with col1:
-            generate_btn = st.button("Generate Signals", type="primary", use_container_width=True)
+            generate_btn = st.button("Generate Signals", type="primary", width='stretch')
         with col2:
             if trader.auto_execution:
                 auto_status = "🟢 ACTIVE"
@@ -2777,7 +2769,7 @@ try:
         with col3:
             # Add auto-execution button
             if trader.auto_execution and trader.can_auto_trade():
-                auto_exec_btn = st.button("🚀 Auto Execute", type="secondary", use_container_width=True, help="Manually trigger auto-execution of current signals")
+                auto_exec_btn = st.button("🚀 Auto Execute", type="secondary", width='stretch', help="Manually trigger auto-execution of current signals")
             else:
                 auto_exec_btn = False
         
@@ -2842,7 +2834,7 @@ try:
                         "Market Regime": s.get('market_regime', 'NEUTRAL')
                     })
                 
-                st.dataframe(pd.DataFrame(data_rows), use_container_width=True)
+                st.dataframe(pd.DataFrame(data_rows), width='stretch')
                 
                 # AUTO-EXECUTION LOGIC
                 if trader.auto_execution and trader.can_auto_trade():
@@ -3024,7 +3016,7 @@ try:
                         else:
                             st.error(msg)
             
-            st.dataframe(pd.DataFrame(positions_df), use_container_width=True)
+            st.dataframe(pd.DataFrame(positions_df), width='stretch')
         else:
             st.info("No open positions")
         
@@ -3129,7 +3121,7 @@ try:
                         height=500
                     )
                     
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
                     
                 except Exception as e:
                     st.error(f"Error analyzing market profile: {str(e)}")
@@ -3150,7 +3142,7 @@ try:
                     for symbol in NIFTY_50[:30]:
                         data = data_manager.get_stock_data(symbol, "15m")
                         if len(data) > 0:
-                            rsi_val = data['RSI14'].iloc[-1]
+                            rsi_val = float(data['RSI14'].iloc[-1] if 'RSI14' in data.columns and len(data['RSI14'].dropna())>0 else 50.0) if 'RSI14' in data.columns and len(data['RSI14'].dropna())>0 else 50.0
                             price = data['Close'].iloc[-1]
                             
                             if rsi_val < 30:
@@ -3174,12 +3166,12 @@ try:
                         if oversold:
                             st.subheader("🔵 Oversold Stocks (RSI < 30)")
                             df_oversold = pd.DataFrame(oversold)
-                            st.dataframe(df_oversold, use_container_width=True)
+                            st.dataframe(df_oversold, width='stretch')
                         
                         if overbought:
                             st.subheader("🔴 Overbought Stocks (RSI > 70)")
                             df_overbought = pd.DataFrame(overbought)
-                            st.dataframe(df_overbought, use_container_width=True)
+                            st.dataframe(df_overbought, width='stretch')
                     else:
                         st.info("No extreme RSI stocks found")
                         
@@ -3210,7 +3202,7 @@ try:
                     })
         
         if strategy_perf:
-            st.dataframe(pd.DataFrame(strategy_perf), use_container_width=True)
+            st.dataframe(pd.DataFrame(strategy_perf), width='stretch')
         else:
             st.info("No backtest data available yet")
 
@@ -3281,7 +3273,7 @@ try:
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            high_acc_scan_btn = st.button("🚀 Scan High Accuracy", type="primary", use_container_width=True)
+            high_acc_scan_btn = st.button("🚀 Scan High Accuracy", type="primary", width='stretch')
         with col2:
             min_high_acc_confidence = st.slider("Min Confidence", 70, 90, 75, 5, key="high_acc_conf")
         with col3:
@@ -3337,7 +3329,7 @@ try:
                         if st.button(
                             f"{signal['action']} {signal['symbol'].replace('.NS', '')}", 
                             key=f"high_acc_exec_{signal['symbol']}",
-                            use_container_width=True
+                            width='stretch'
                         ):
                             if kelly_sizing:
                                 qty = trader.data_manager.calculate_optimal_position_size(
