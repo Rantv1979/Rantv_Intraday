@@ -65,7 +65,7 @@ MAX_STOCK_TRADES = 10
 MAX_AUTO_TRADES = 10
 
 SIGNAL_REFRESH_MS = 90000
-PRICE_REFRESH_MS = 60000
+PRICE_REFRESH_MS = 80000
 
 MARKET_OPTIONS = ["CASH"]
 
@@ -2830,3 +2830,4 @@ except Exception as e:
     st.error(f"Application error: {str(e)}")
     st.info("Please refresh the page and try again")
     logger.error(f"Application crash: {e}")
+
