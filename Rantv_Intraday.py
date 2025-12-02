@@ -569,7 +569,7 @@ class AdvancedRiskManager:
         except Exception:
             return int((available_capital * 0.1) / price)  # Fallback
     
-    def check_trade_viability(self, symbol, action, quantity, price, current_positions):
+  def check_trade_viability(self, symbol, action, quantity, price, current_positions):
     """
     Automatically scale position size to remain within concentration risk limits.
     Prevents trade rejection and keeps trades safe.
@@ -3408,6 +3408,7 @@ except Exception as e:
     st.info("Please refresh the page and try again")
     logger.error(f"Application crash: {e}")
     st.code(traceback.format_exc())
+
 
 
 
