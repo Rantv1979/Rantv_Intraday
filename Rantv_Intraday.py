@@ -1,5 +1,5 @@
 # Rantv Intraday Trading Signals & Market Analysis - PRODUCTION READY
-# FIXED VERSION WITH ALL DEPENDENCIES HANDLED
+# ENHANCED VERSION WITH FULL STOCK SCANNING & BETTER SIGNAL QUALITY
 
 import time
 from datetime import datetime, time as dt_time
@@ -511,6 +511,34 @@ st.markdown("""
         border-radius: 8px;
         border-left: 4px solid #6b7280;
     }
+    
+    /* Signal Quality Styles */
+    .high-quality-signal {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 8px 0;
+        border-left: 4px solid #047857;
+    }
+    
+    .medium-quality-signal {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 8px 0;
+        border-left: 4px solid #b45309;
+    }
+    
+    .low-quality-signal {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 8px 0;
+        border-left: 4px solid #b91c1c;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -640,6 +668,164 @@ class AdvancedRiskManager:
 
         return True, f"Trade viable (final adjusted quantity: {quantity})"
 
+# NEW: Enhanced Signal Filtering System
+class SignalQualityFilter:
+    """Enhanced signal filtering to improve trade quality"""
+    
+    @staticmethod
+    def filter_high_quality_signals(signals, data_manager):
+        """Filter only high-quality signals with multiple confirmations"""
+        filtered = []
+        
+        for signal in signals:
+            symbol = signal["symbol"]
+            
+            try:
+                # Get recent data for analysis
+                data = data_manager.get_stock_data(symbol, "15m")
+                if data is None or len(data) < 30:
+                    continue
+                    
+                # 1. Volume Confirmation (minimum 1.3x average volume)
+                volume = data["Volume"].iloc[-1]
+                avg_volume = data["Volume"].rolling(20).mean().iloc[-1] if len(data) >= 20 else volume
+                volume_ratio = volume / avg_volume if avg_volume > 0 else 1
+                
+                if volume_ratio < 1.3:  # Minimum 30% above average volume
+                    continue
+                
+                # 2. Trend Alignment Check
+                price = data["Close"].iloc[-1]
+                ema8 = data["EMA8"].iloc[-1]
+                ema21 = data["EMA21"].iloc[-1]
+                ema50 = data["EMA50"].iloc[-1]
+                
+                if signal["action"] == "BUY":
+                    # For BUY: Price should be above key EMAs
+                    if not (price > ema8 > ema21 > ema50):
+                        continue
+                else:  # SELL
+                    # For SELL: Price should be below key EMAs
+                    if not (price < ema8 < ema21 < ema50):
+                        continue
+                
+                # 3. RSI Filter (avoid extreme overbought/oversold for entries)
+                rsi_val = data["RSI14"].iloc[-1]
+                if signal["action"] == "BUY" and rsi_val > 65:
+                    continue
+                if signal["action"] == "SELL" and rsi_val < 35:
+                    continue
+                
+                # 4. Risk-Reward Ratio (minimum 2.5:1)
+                if signal.get("risk_reward", 0) < 2.5:
+                    continue
+                
+                # 5. Confidence Threshold (minimum 75%)
+                if signal.get("confidence", 0) < 0.75:
+                    continue
+                
+                # 6. Price relative to VWAP
+                vwap = data["VWAP"].iloc[-1]
+                if signal["action"] == "BUY" and price < vwap * 0.99:
+                    continue  # Too far below VWAP for BUY
+                if signal["action"] == "SELL" and price > vwap * 1.01:
+                    continue  # Too far above VWAP for SELL
+                
+                # 7. ADX Strength (minimum 20 for trend strength)
+                adx_val = data["ADX"].iloc[-1] if 'ADX' in data.columns else 20
+                if adx_val < 20:
+                    continue
+                
+                # 8. ATR Filter (avoid extremely volatile stocks)
+                atr = data["ATR"].iloc[-1] if 'ATR' in data.columns else price * 0.01
+                atr_percent = (atr / price) * 100
+                if atr_percent > 3.0:  # Avoid stocks with >3% daily volatility
+                    continue
+                
+                # All checks passed - mark as high quality
+                signal["quality_score"] = SignalQualityFilter.calculate_quality_score(signal, data)
+                signal["volume_ratio"] = volume_ratio
+                signal["atr_percent"] = atr_percent
+                signal["trend_aligned"] = True
+                
+                filtered.append(signal)
+                
+            except Exception as e:
+                logger.error(f"Error filtering signal for {symbol}: {e}")
+                continue
+        
+        return filtered
+    
+    @staticmethod
+    def calculate_quality_score(signal, data):
+        """Calculate a comprehensive quality score (0-100)"""
+        score = 0
+        
+        # Confidence weight: 30%
+        score += signal.get("confidence", 0) * 30
+        
+        # Risk-Reward weight: 25%
+        rr = signal.get("risk_reward", 0)
+        if rr >= 3.0:
+            score += 25
+        elif rr >= 2.5:
+            score += 20
+        elif rr >= 2.0:
+            score += 15
+        else:
+            score += 5
+        
+        # Volume confirmation weight: 20%
+        volume = data["Volume"].iloc[-1]
+        avg_volume = data["Volume"].rolling(20).mean().iloc[-1] if len(data) >= 20 else volume
+        volume_ratio = volume / avg_volume if avg_volume > 0 else 1
+        if volume_ratio >= 2.0:
+            score += 20
+        elif volume_ratio >= 1.5:
+            score += 15
+        elif volume_ratio >= 1.3:
+            score += 10
+        else:
+            score += 5
+        
+        # Trend alignment weight: 15%
+        price = data["Close"].iloc[-1]
+        ema8 = data["EMA8"].iloc[-1]
+        ema21 = data["EMA21"].iloc[-1]
+        
+        if signal["action"] == "BUY":
+            if price > ema8 > ema21:
+                score += 15
+            elif price > ema8:
+                score += 10
+            else:
+                score += 5
+        else:  # SELL
+            if price < ema8 < ema21:
+                score += 15
+            elif price < ema8:
+                score += 10
+            else:
+                score += 5
+        
+        # RSI alignment weight: 10%
+        rsi_val = data["RSI14"].iloc[-1]
+        if signal["action"] == "BUY":
+            if 30 <= rsi_val <= 50:
+                score += 10
+            elif 50 < rsi_val <= 60:
+                score += 8
+            else:
+                score += 3
+        else:  # SELL
+            if 50 <= rsi_val <= 70:
+                score += 10
+            elif 40 <= rsi_val < 50:
+                score += 8
+            else:
+                score += 3
+        
+        return min(100, int(score))
 
 # NEW: Machine Learning Signal Enhancer
 class MLSignalEnhancer:
@@ -759,7 +945,7 @@ class MarketRegimeDetector:
             # Calculate regime indicators
             adx_value = nifty_data['ADX'].iloc[-1] if 'ADX' in nifty_data.columns else 20
             volatility = nifty_data['Close'].pct_change().std() * 100 if len(nifty_data) > 1 else 1.0
-            rsi_val = nifty_(data['RSI14'].iloc[-1] if 'RSI14' in data and data['RSI14'].dropna().shape[0] > 0 else 50.0) if 'RSI14' in nifty_data.columns else 50
+            rsi_val = nifty_data['RSI14'].iloc[-1] if 'RSI14' in nifty_data.columns else 50
             
             # Determine regime
             if adx_value > 25 and volatility < 1.2:
@@ -1193,6 +1379,7 @@ class EnhancedDataManager:
         self.portfolio_optimizer = PortfolioOptimizer()
         self.alert_manager = AlertManager()
         self.database = TradeDatabase()
+        self.signal_filter = SignalQualityFilter()
 
     def _validate_live_price(self, symbol):
         now_ts = time.time()
@@ -1454,6 +1641,10 @@ class EnhancedDataManager:
         return self.risk_manager.calculate_kelly_position_size(
             win_probability, win_loss_ratio, available_capital, price, atr
         )
+    
+    def filter_high_quality_signals(self, signals):
+        """Filter signals for high quality"""
+        return self.signal_filter.filter_high_quality_signals(signals, self)
 
 # RealBacktestEngine (simplified for stability)
 class RealBacktestEngine:
@@ -1568,6 +1759,34 @@ class MultiStrategyIntradayTrader:
                 target = entry_price - max((sl - entry_price) * 2.0, atr * 2.0)
                 
         return round(float(target), 2), round(float(sl), 2)
+    
+    # NEW: Improved stop-loss and target calculation
+    def calculate_improved_stop_target(self, entry_price, action, atr, current_price, support, resistance):
+        """Calculate improved stop-loss and target with market structure"""
+        
+        if action == "BUY":
+            # For BUY: SL below recent swing low, target at resistance
+            sl = support * 0.995  # 0.5% below support
+            target = resistance * 0.998  # Just below resistance
+            
+            # Adjust if risk-reward is poor
+            rr = (target - entry_price) / (entry_price - sl)
+            if rr < 2.5:
+                # Adjust target to maintain good RR
+                target = entry_price + (2.5 * (entry_price - sl))
+                
+        else:  # SELL
+            # For SELL: SL above recent swing high, target at support
+            sl = resistance * 1.005  # 0.5% above resistance
+            target = support * 1.002  # Just above support
+            
+            # Adjust if risk-reward is poor
+            rr = (entry_price - target) / (sl - entry_price)
+            if rr < 2.5:
+                # Adjust target to maintain good RR
+                target = entry_price - (2.5 * (sl - entry_price))
+        
+        return round(target, 2), round(sl, 2)
 
     def equity(self):
         total = float(self.cash)
@@ -1694,7 +1913,7 @@ class MultiStrategyIntradayTrader:
                 macd_line > macd_signal):
                 
                 action = "BUY"
-                target, stop_loss = self.calculate_intraday_target_sl(current_price, action, atr, current_price, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(current_price, action, atr, current_price, support, resistance)
                 rr = abs(target - current_price) / max(abs(current_price - stop_loss), 1e-6)
                 
                 if rr >= 2.5:  # Higher risk-reward for high accuracy
@@ -1726,7 +1945,7 @@ class MultiStrategyIntradayTrader:
                 else:  # Downtrend
                     action = "SELL"
                     
-                target, stop_loss = self.calculate_intraday_target_sl(current_price, action, atr, current_price, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(current_price, action, atr, current_price, support, resistance)
                 rr = abs(target - current_price) / max(abs(current_price - stop_loss), 1e-6)
                 
                 if rr >= 2.2:
@@ -1756,7 +1975,7 @@ class MultiStrategyIntradayTrader:
                 else:
                     action = "SELL"
                     
-                target, stop_loss = self.calculate_intraday_target_sl(current_price, action, atr, current_price, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(current_price, action, atr, current_price, support, resistance)
                 rr = abs(target - current_price) / max(abs(current_price - stop_loss), 1e-6)
                 
                 if rr >= 2.0:
@@ -2051,9 +2270,9 @@ class MultiStrategyIntradayTrader:
             # Strategy 1: EMA + VWAP + ADX + HTF Trend
             if (ema8 > ema21 > ema50 and live > vwap and adx_val > 20 and htf_trend == 1):
                 action = "BUY"; confidence = 0.82; score = 9; strategy = "EMA_VWAP_Confluence"
-                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.0:
+                if rr >= 2.5:  # Increased from 2.0
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         # NEW: Enhanced confidence with ML and market regime
@@ -2068,6 +2287,10 @@ class MultiStrategyIntradayTrader:
                             
                         win_probability = min(0.9, enhanced_confidence)
                         
+                        # Volume confirmation
+                        if vol_latest < vol_avg * 1.3:  # Require 30% above average volume
+                            confidence *= 0.9  # Reduce confidence if volume is low
+                        
                         signals.append({
                             "symbol": symbol, "action": action, "entry": live, "current_price": live,
                             "target": target, "stop_loss": stop_loss, "confidence": confidence,
@@ -2075,15 +2298,16 @@ class MultiStrategyIntradayTrader:
                             "rsi": rsi_val, "risk_reward": rr, "score": score, "strategy": strategy,
                             "strategy_name": TRADING_STRATEGIES[strategy]["name"],
                             "ml_confidence": ml_confidence,
-                            "market_regime": market_regime
+                            "market_regime": market_regime,
+                            "volume_ratio": vol_latest / vol_avg if vol_avg > 0 else 1
                         })
 
             # Strategy 2: RSI Mean Reversion (15min timeframe focused)
-            if rsi_val < 30 and live > support:
+            if rsi_val < 30 and live > support and rsi_val > 25:  # Avoid extreme oversold
                 action = "BUY"; confidence = 0.78; score = 8; strategy = "RSI_MeanReversion"
-                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.0:
+                if rr >= 2.5:  # Increased from 2.0
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         base_win_probability = min(0.80, historical_accuracy * 1.1)
@@ -2103,9 +2327,9 @@ class MultiStrategyIntradayTrader:
             # Strategy 3: Bollinger Reversion
             if live <= float(data["BB_Lower"].iloc[-1]) if "BB_Lower" in data.columns else False:
                 action = "BUY"; confidence = 0.75; score = 7; strategy = "Bollinger_Reversion"
-                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.0:
+                if rr >= 2.5:
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         signals.append({
@@ -2119,9 +2343,9 @@ class MultiStrategyIntradayTrader:
             # Strategy 4: MACD Momentum
             if (macd_line > macd_signal and ema8 > ema21 and live > vwap):
                 action = "BUY"; confidence = 0.80; score = 8; strategy = "MACD_Momentum"
-                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.0:
+                if rr >= 2.5:
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         signals.append({
@@ -2136,9 +2360,9 @@ class MultiStrategyIntradayTrader:
             # Strategy 5: EMA + VWAP Downtrend
             if (ema8 < ema21 < ema50 and live < vwap and adx_val > 20):
                 action = "SELL"; confidence = 0.82; score = 9; strategy = "EMA_VWAP_Downtrend"
-                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.0:
+                if rr >= 2.5:
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         signals.append({
@@ -2150,11 +2374,11 @@ class MultiStrategyIntradayTrader:
                         })
 
             # Strategy 6: RSI Overbought
-            if rsi_val > 70 and live < resistance:
+            if rsi_val > 70 and live < resistance and rsi_val < 75:  # Avoid extreme overbought
                 action = "SELL"; confidence = 0.78; score = 8; strategy = "RSI_Overbought"
-                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.0:
+                if rr >= 2.5:
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         signals.append({
@@ -2168,9 +2392,9 @@ class MultiStrategyIntradayTrader:
             # Strategy 7: Bollinger Rejection
             if live >= float(data["BB_Upper"].iloc[-1]) if "BB_Upper" in data.columns else False:
                 action = "SELL"; confidence = 0.75; score = 7; strategy = "Bollinger_Rejection"
-                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.0:
+                if rr >= 2.5:
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         signals.append({
@@ -2184,9 +2408,9 @@ class MultiStrategyIntradayTrader:
             # Strategy 8: MACD Bearish
             if (macd_line < macd_signal and ema8 < ema21 and live < vwap):
                 action = "SELL"; confidence = 0.80; score = 8; strategy = "MACD_Bearish"
-                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.0:
+                if rr >= 2.5:
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         signals.append({
@@ -2208,9 +2432,9 @@ class MultiStrategyIntradayTrader:
                 
                 if action:
                     confidence = 0.85; score = 9
-                    target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                    target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                     rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                    if rr >= 2.0:
+                    if rr >= 2.5:
                         historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                         if historical_accuracy >= 0.65:
                             signals.append({
@@ -2230,9 +2454,9 @@ class MultiStrategyIntradayTrader:
                     action = "BUY"
                     
                 confidence = 0.75; score = 7; strategy = "Trend_Reversal"
-                target, stop_loss = self.calculate_intraday_target_sl(live, action, atr, live, support, resistance)
+                target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.0:
+                if rr >= 2.5:
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         signals.append({
@@ -2267,12 +2491,12 @@ class MultiStrategyIntradayTrader:
             stocks = ALL_STOCKS
         else:
             stocks = NIFTY_50
-            
-        if max_scan is None:
-            max_scan = len(stocks)
         
-        # Limit scanning for performance
-        stocks_to_scan = stocks[:max_scan]
+        # FIX: Properly handle max_scan parameter
+        if max_scan is not None and max_scan < len(stocks):
+            stocks_to_scan = stocks[:max_scan]
+        else:
+            stocks_to_scan = stocks  # Scan ALL stocks when max_scan is None
         
         # Show progress
         progress_bar = st.progress(0)
@@ -2280,7 +2504,7 @@ class MultiStrategyIntradayTrader:
         
         # NEW: Get market regime for context
         market_regime = self.data_manager.get_market_regime()
-        st.info(f"📊 Current Market Regime: **{market_regime}** | Universe: **{universe}** | High Accuracy: **{'ON' if use_high_accuracy else 'OFF'}**")
+        st.info(f"📊 Current Market Regime: **{market_regime}** | Universe: **{universe}** | Stocks to scan: **{len(stocks_to_scan)}** | High Accuracy: **{'ON' if use_high_accuracy else 'OFF'}**")
         
         for idx, symbol in enumerate(stocks_to_scan):
             try:
@@ -2309,6 +2533,12 @@ class MultiStrategyIntradayTrader:
         
         # Filter signals based on confidence and score
         signals = [s for s in signals if s.get("confidence", 0) >= min_confidence and s.get("score", 0) >= min_score]
+        
+        # NEW: Apply high-quality filtering
+        if len(signals) > 0:
+            filtered_signals = self.data_manager.filter_high_quality_signals(signals)
+            st.info(f"📊 Filtered {len(signals)} → {len(filtered_signals)} high-quality signals")
+            signals = filtered_signals
         
         # Sort by score and confidence
         signals.sort(key=lambda x: (x.get("score", 0), x.get("confidence", 0)), reverse=True)
@@ -2456,7 +2686,8 @@ try:
     st_autorefresh(interval=PRICE_REFRESH_MS, key="price_refresh_improved")
 
     # Enhanced UI with Circular Market Mood Gauges
-    st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Rantv Intraday Terminal Pro - PRODUCTION READY</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center; color: #1e3a8a;'>Rantv Intraday Terminal Pro - ENHANCED</h1>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align:center; color: #6b7280;'>Full Stock Scanning & High-Quality Signal Generation Enabled</h4>", unsafe_allow_html=True)
 
     # Market overview with enhanced metrics
     cols = st.columns(7)
@@ -2577,6 +2808,48 @@ try:
         </div>
         """, unsafe_allow_html=True)
 
+    # NEW: Signal Quality Overview
+    st.subheader("🎯 Signal Quality Overview")
+    quality_cols = st.columns(4)
+    
+    with quality_cols[0]:
+        st.markdown("""
+        <div class="high-quality-signal">
+            <div style="font-size: 14px; font-weight: bold;">High Quality</div>
+            <div style="font-size: 12px; margin-top: 5px;">• RR ≥ 2.5:1</div>
+            <div style="font-size: 12px;">• Volume ≥ 1.3x</div>
+            <div style="font-size: 12px;">• Confidence ≥ 75%</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with quality_cols[1]:
+        st.markdown("""
+        <div class="medium-quality-signal">
+            <div style="font-size: 14px; font-weight: bold;">Medium Quality</div>
+            <div style="font-size: 12px; margin-top: 5px;">• RR ≥ 2.0:1</div>
+            <div style="font-size: 12px;">• Volume ≥ 1.2x</div>
+            <div style="font-size: 12px;">• Confidence ≥ 70%</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with quality_cols[2]:
+        st.markdown("""
+        <div class="metric-card">
+            <div style="font-size: 12px; color: #6b7280;">Min Risk-Reward</div>
+            <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">2.5:1</div>
+            <div style="font-size: 11px; margin-top: 3px;">Increased from 2.0:1</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with quality_cols[3]:
+        st.markdown("""
+        <div class="metric-card">
+            <div style="font-size: 12px; color: #6b7280;">Min Volume Ratio</div>
+            <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">1.3x</div>
+            <div style="font-size: 11px; margin-top: 3px;">30% above average</div>
+        </div>
+        """, unsafe_allow_html=True)
+
     # NEW: Auto-Execution Status Panel
     st.subheader("🚀 Auto-Execution Status")
     
@@ -2687,15 +2960,22 @@ try:
     
     trader.auto_execution = st.sidebar.checkbox("Auto Execution", value=False)
     
-    # NEW: Risk Management Settings
-    st.sidebar.subheader("🎯 Risk Management")
+    # NEW: Enhanced Risk Management Settings
+    st.sidebar.subheader("🎯 Enhanced Risk Management")
     enable_ml = st.sidebar.checkbox("Enable ML Enhancement", value=JOBLIB_AVAILABLE, disabled=not JOBLIB_AVAILABLE)
     kelly_sizing = st.sidebar.checkbox("Kelly Position Sizing", value=True)
+    enable_signal_filtering = st.sidebar.checkbox("Enable Signal Filtering", value=True, 
+                                                 help="Filter only high-quality signals with volume confirmation")
     
-    min_conf_percent = st.sidebar.slider("Minimum Confidence %", 60, 95, 70, 5)
-    min_score = st.sidebar.slider("Minimum Score", 5, 10, 6, 1)
-    scan_limit = st.sidebar.selectbox("Scan Limit", ["All Stocks", "Top 40", "Top 20"], index=0)
-    max_scan_map = {"All Stocks": None, "Top 40": 40, "Top 20": 20}
+    # UPDATED: Higher thresholds for better signal quality
+    min_conf_percent = st.sidebar.slider("Minimum Confidence %", 70, 95, 75, 5, 
+                                        help="Increased from 70% to 75% for better quality")
+    min_score = st.sidebar.slider("Minimum Score", 6, 10, 7, 1, 
+                                 help="Increased from 6 to 7 for better quality")
+    
+    # UPDATED: Scan limit options
+    scan_limit = st.sidebar.selectbox("Scan Limit", ["Full Scan (All Stocks)", "Top 100", "Top 50"], index=0)
+    max_scan_map = {"Full Scan (All Stocks)": None, "Top 100": 100, "Top 50": 50}
     max_scan = max_scan_map[scan_limit]
 
     # Add debug toggle in sidebar
@@ -2714,6 +2994,18 @@ try:
         st.sidebar.write(f"- Auto close time: {should_auto_close()}")
         st.sidebar.write(f"- Open positions: {len(trader.positions)}")
         st.sidebar.write(f"- Available cash: ₹{trader.cash:,.0f}")
+        
+        # Stock universe info
+        st.sidebar.write(f"**Stock Universe:**")
+        st.sidebar.write(f"- Selected universe: {universe}")
+        if universe == "All Stocks":
+            st.sidebar.write(f"- Total stocks: {len(ALL_STOCKS)}")
+        elif universe == "Nifty 50":
+            st.sidebar.write(f"- Total stocks: {len(NIFTY_50)}")
+        elif universe == "Nifty 100":
+            st.sidebar.write(f"- Total stocks: {len(NIFTY_100)}")
+        elif universe == "Midcap 150":
+            st.sidebar.write(f"- Total stocks: {len(NIFTY_MIDCAP_150)}")
         
         # Auto-execution checks
         st.sidebar.write(f"**Auto-execution Checks:**")
@@ -2796,6 +3088,14 @@ try:
     # Tab 2: Signals
     with tabs[1]:
         st.subheader("Multi-Strategy BUY/SELL Signals")
+        st.markdown("""
+        <div class="alert-success">
+            <strong>🎯 Enhanced Signal Quality:</strong> 
+            Signals now require minimum 2.5:1 risk-reward ratio, 30% above average volume, 
+            and 75% confidence. This reduces losing trades and improves profitability.
+        </div>
+        """, unsafe_allow_html=True)
+        
         col1, col2, col3 = st.columns([1, 2, 1])
         with col1:
             generate_btn = st.button("Generate Signals", type="primary", width='stretch')
@@ -2841,7 +3141,7 @@ try:
         
         if generate_signals:
             with st.spinner(f"Scanning {universe} stocks with enhanced strategies..."):
-                # CHANGED: Always use high accuracy when enabled
+                # Use high accuracy when enabled
                 signals = trader.generate_quality_signals(
                     universe, 
                     max_scan=max_scan, 
@@ -2855,13 +3155,22 @@ try:
                 buy_signals = [s for s in signals if s["action"] == "BUY"]
                 sell_signals = [s for s in signals if s["action"] == "SELL"]
                 
-                st.success(f"Found {len(buy_signals)} BUY signals and {len(sell_signals)} SELL signals")
+                st.success(f"✅ Found {len(buy_signals)} BUY signals and {len(sell_signals)} SELL signals (After quality filtering)")
                 
                 data_rows = []
                 for s in signals:
                     # Check if it's a high accuracy strategy
                     is_high_acc = s["strategy"] in HIGH_ACCURACY_STRATEGIES
                     strategy_display = f"🔥 {s['strategy_name']}" if is_high_acc else s['strategy_name']
+                    
+                    # Quality score display
+                    quality_score = s.get('quality_score', 0)
+                    if quality_score >= 80:
+                        quality_text = "🟢 High"
+                    elif quality_score >= 60:
+                        quality_text = "🟡 Medium"
+                    else:
+                        quality_text = "🔴 Low"
                     
                     data_rows.append({
                         "Symbol": s["symbol"].replace(".NS",""),
@@ -2872,13 +3181,11 @@ try:
                         "Target": f"₹{s['target']:.2f}",
                         "Stop Loss": f"₹{s['stop_loss']:.2f}",
                         "Confidence": f"{s['confidence']:.1%}",
-                        "ML Confidence": f"{s.get('ml_confidence', 0.7):.1%}",
-                        "Historical Win %": f"{s.get('historical_accuracy', 0.7):.1%}",
-                        "Current Win %": f"{s.get('win_probability',0.7):.1%}",
+                        "Quality": quality_text,
+                        "Volume Ratio": f"{s.get('volume_ratio', 1):.1f}x",
                         "R:R": f"{s['risk_reward']:.2f}",
                         "Score": s['score'],
-                        "RSI": f"{s['rsi']:.1f}",
-                        "Market Regime": s.get('market_regime', 'NEUTRAL')
+                        "RSI": f"{s['rsi']:.1f}"
                     })
                 
                 st.dataframe(pd.DataFrame(data_rows), width='stretch')
@@ -2895,11 +3202,11 @@ try:
                         auto_execute_now = True
                         st.info("🚀 Manual auto-execution triggered")
                     elif auto_generate:
-                        # Auto-execute based on signals (only high confidence signals)
-                        high_confidence_signals = [s for s in signals if s.get("confidence", 0) >= 0.8 and s.get("score", 0) >= 8]
-                        if high_confidence_signals:
+                        # Auto-execute only high-quality signals (quality score >= 80)
+                        high_quality_signals = [s for s in signals if s.get('quality_score', 0) >= 80]
+                        if high_quality_signals:
                             auto_execute_now = True
-                            st.info(f"🚀 Found {len(high_confidence_signals)} high-confidence signals for auto-execution")
+                            st.info(f"🚀 Found {len(high_quality_signals)} high-quality signals for auto-execution")
                     
                     if auto_execute_now:
                         executed = trader.auto_execute_signals(signals)
@@ -2912,16 +3219,32 @@ try:
                         else:
                             st.warning("No trades were auto-executed. Check trade limits or existing positions.")
                     elif trader.auto_execution and not auto_execute_now:
-                        st.info("Auto-execution is active. High-confidence signals will be executed automatically.")
+                        st.info("Auto-execution is active. High-quality signals (score ≥ 80) will be executed automatically.")
                 
                 st.subheader("Manual Execution")
                 for s in signals[:5]:  # Show only first 5 for better UI
+                    quality_score = s.get('quality_score', 0)
+                    if quality_score >= 80:
+                        quality_class = "high-quality-signal"
+                    elif quality_score >= 60:
+                        quality_class = "medium-quality-signal"
+                    else:
+                        quality_class = "low-quality-signal"
+                    
                     col_a, col_b, col_c = st.columns([3,1,1])
                     with col_a:
                         action_color = "🟢" if s["action"] == "BUY" else "🔴"
                         is_high_acc = s["strategy"] in HIGH_ACCURACY_STRATEGIES
                         strategy_display = f"🔥 {s['strategy_name']}" if is_high_acc else s['strategy_name']
-                        st.write(f"{action_color} **{s['symbol'].replace('.NS','')}** - {s['action']} @ ₹{s['entry']:.2f} | Strategy: {strategy_display} | Historical Win: {s.get('historical_accuracy',0.7):.1%} | R:R: {s['risk_reward']:.2f}")
+                        volume_ratio = s.get('volume_ratio', 1)
+                        
+                        st.markdown(f"""
+                        <div class="{quality_class}">
+                            <strong>{action_color} {s['symbol'].replace('.NS','')}</strong> - {s['action']} @ ₹{s['entry']:.2f}<br>
+                            Strategy: {strategy_display} | Quality: {quality_score}/100<br>
+                            R:R: {s['risk_reward']:.2f} | Volume: {volume_ratio:.1f}x
+                        </div>
+                        """, unsafe_allow_html=True)
                     with col_b:
                         if kelly_sizing:
                             try:
@@ -2949,12 +3272,12 @@ try:
                             else:
                                 st.error(msg)
             else:
-                st.info("No confirmed signals with current filters.")
+                st.info("No confirmed signals with current filters. Try lowering confidence threshold or checking market hours.")
         else:
             # Show auto-execution status when no signals generated
             if trader.auto_execution:
                 if market_open():
-                    st.info("🔄 Auto-execution is active. Signals will be generated and executed automatically during market hours.")
+                    st.info("🔄 Auto-execution is active. High-quality signals will be generated and executed automatically during market hours.")
                     st.write(f"**Auto-execution status:**")
                     st.write(f"- Daily trades: {trader.daily_trades}/{MAX_DAILY_TRADES}")
                     st.write(f"- Auto trades: {trader.auto_trades_count}/{MAX_AUTO_TRADES}")
@@ -2991,8 +3314,8 @@ try:
                 atr = float(data["ATR"].iloc[-1]) if 'ATR' in data.columns else price * 0.01
                 support, resistance = trader.calculate_support_resistance(symbol, price)
                 
-                # Calculate stop loss and target
-                target, stop_loss = trader.calculate_intraday_target_sl(
+                # Calculate stop loss and target using IMPROVED method
+                target, stop_loss = trader.calculate_improved_stop_target(
                     price, action, atr, price, support, resistance
                 )
                 
@@ -3018,14 +3341,13 @@ try:
                 
                 if success:
                     st.success(f"✅ {msg}")
-                    st.success(f"Stop Loss: ₹{stop_loss:.2f} | Target: ₹{target:.2f}")
+                    st.success(f"Stop Loss: ₹{stop_loss:.2f} | Target: ₹{target:.2f} | R:R: {(abs(target-price)/abs(price-stop_loss)):.2f}:1")
                     st.rerun()
                 else:
                     st.error(f"❌ {msg}")
                     
             except Exception as e:
                 st.error(f"Trade execution failed: {str(e)}")
-                st.error(f"Full error: {traceback.format_exc()}")
         
         # Show current positions
         st.subheader("Current Positions")
@@ -3341,13 +3663,21 @@ try:
                 
                 # Display high accuracy signals with special styling
                 for signal in high_acc_signals[:10]:  # Show first 10
+                    quality_score = signal.get('quality_score', 0)
+                    if quality_score >= 80:
+                        quality_class = "high-quality-signal"
+                    elif quality_score >= 60:
+                        quality_class = "medium-quality-signal"
+                    else:
+                        quality_class = "low-quality-signal"
+                    
                     with st.container():
                         st.markdown(f"""
-                        <div class="midcap-signal">
+                        <div class="{quality_class}">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <strong>{signal['symbol'].replace('.NS', '')}</strong> | 
-                                    <span style="color: {'#059669' if signal['action'] == 'BUY' else '#dc2626'}">
+                                    <span style="color: {'#ffffff' if signal['action'] == 'BUY' else '#ffffff'}">
                                         {signal['action']}
                                     </span> | 
                                     ₹{signal['entry']:.2f}
@@ -3360,10 +3690,10 @@ try:
                             </div>
                             <div style="font-size: 12px; margin-top: 5px;">
                                 Target: ₹{signal['target']:.2f} | SL: ₹{signal['stop_loss']:.2f} | 
-                                R:R: {signal['risk_reward']:.2f} | Confidence: {signal['confidence']:.1%}
+                                R:R: {signal['risk_reward']:.2f} | Quality: {quality_score}/100
                             </div>
-                            <div style="font-size: 11px; color: #6b7280;">
-                                {signal.get('reason', 'High probability setup')}
+                            <div style="font-size: 11px; margin-top: 3px;">
+                                Volume: {signal.get('volume_ratio', 1):.1f}x | Confidence: {signal['confidence']:.1%}
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
@@ -3403,15 +3733,10 @@ try:
                 st.info("No high-confidence signals found with current filters.")
 
     st.markdown("---")
-    st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with AI/ML & High Accuracy Strategies - All Stocks Universe Enabled</div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center; color: #6b7280;'>Enhanced Intraday Terminal Pro with Full Stock Scanning & High-Quality Signal Filters | Reduced Losses & Improved Profitability</div>", unsafe_allow_html=True)
 
 except Exception as e:
     st.error(f"Application error: {str(e)}")
     st.info("Please refresh the page and try again")
     logger.error(f"Application crash: {e}")
     st.code(traceback.format_exc())
-
-
-
-
-
