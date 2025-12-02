@@ -77,10 +77,10 @@ IND_TZ = pytz.timezone("Asia/Kolkata")
 
 # Trading Constants
 CAPITAL = 2_000_000.0
-TRADE_ALLOC = 0.05
-MAX_DAILY_TRADES = 15
-MAX_STOCK_TRADES = 15
-MAX_AUTO_TRADES = 15
+TRADE_ALLOC = 0.15
+MAX_DAILY_TRADES = 10
+MAX_STOCK_TRADES = 10
+MAX_AUTO_TRADES = 05
 
 SIGNAL_REFRESH_MS = 120000
 PRICE_REFRESH_MS = 100000
@@ -570,69 +570,28 @@ class AdvancedRiskManager:
             return int((available_capital * 0.1) / price)  # Fallback
     
     def check_trade_viability(self, symbol, action, quantity, price, current_positions):
-    """
-    Automatically scale position size to remain within concentration risk limits.
-    Prevents hard rejections and ensures the trade executes safely.
-    """
-
-    # Reset daily metrics
-    self.reset_daily_metrics()
-
-    # Price sanity
-    if price is None or price <= 0:
-        return False, "Invalid price"
-
-    # Compute portfolio value
-    current_portfolio_value = sum([
-        pos.get("quantity", 0) * pos.get("entry_price", 0)
-        for pos in current_positions.values()
-        if pos.get("entry_price", 0) > 0
-    ])
-
-    # If portfolio looks empty, approximate
-    if current_portfolio_value <= 0:
-        current_portfolio_value = price * max(quantity, 1)
-
-    requested_value = quantity * price
-
-    # Concentration cap (20% default)
-    MAX_CONCENTRATION = 0.20
-    max_allowed_value = max(current_portfolio_value * MAX_CONCENTRATION, 1)
-
-    # Auto-scale if needed
-    if requested_value > max_allowed_value:
-        adjusted_qty = int(max_allowed_value // price)
-        if adjusted_qty < 1:
-            adjusted_qty = 1
-
-        if "debug" in st.session_state and st.session_state["debug"]:
-            st.warning(
-                f"{symbol}: Requested {quantity} → Auto-adjusted to {adjusted_qty} (concentration protection)"
-            )
-
-        quantity = adjusted_qty
-        requested_value = quantity * price
-
-    # Hard 50% absolute safety cap
-    HARD_CAP = 0.50
-    hard_cap_value = current_portfolio_value * HARD_CAP
-
-    if requested_value > hard_cap_value:
-        adjusted_qty = int(hard_cap_value // price)
-        adjusted_qty = max(1, adjusted_qty)
-        quantity = adjusted_qty
-
-        if "debug" in st.session_state and st.session_state["debug"]:
-            st.warning(
-                f"{symbol}: Further auto-scaling → {adjusted_qty} (hard cap limit)"
-            )
-
-    # Daily loss limit check
-    if self.daily_pnl < -self.max_daily_loss:
-        return False, "Daily loss limit exceeded"
-
-    return True, f"Trade viable (final adjusted quantity: {quantity})"
-
+        """Check if trade meets risk criteria"""
+        try:
+            self.reset_daily_metrics()
+            
+            # Check daily loss limit
+            if self.daily_pnl < -self.max_daily_loss:
+                return False, "Daily loss limit exceeded"
+            
+            # Check concentration risk
+            trade_value = quantity * price
+            total_portfolio_value = sum([pos.get('quantity', 0) * pos.get('entry_price', 0) 
+                                       for pos in current_positions.values()]) + trade_value
+            
+            if total_portfolio_value <= 0:
+                total_portfolio_value = trade_value
+                
+            if trade_value > total_portfolio_value * 0.2:  # Max 20% in single position
+                return False, "Position size exceeds concentration limits"
+            
+            return True, "Trade viable"
+        except Exception:
+            return True, "Trade viable (risk check bypassed)"
 
 # NEW: Machine Learning Signal Enhancer
 class MLSignalEnhancer:
@@ -3403,6 +3362,3 @@ except Exception as e:
     st.info("Please refresh the page and try again")
     logger.error(f"Application crash: {e}")
     st.code(traceback.format_exc())
-
-
-
