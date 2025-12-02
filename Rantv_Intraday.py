@@ -569,75 +569,77 @@ class AdvancedRiskManager:
         except Exception:
             return int((available_capital * 0.1) / price)  # Fallback
     
-  def check_trade_viability(self, symbol, action, quantity, price, current_positions):
-    """
-    Automatically scale position size to remain within concentration risk limits.
-    Prevents trade rejection and keeps trades safe.
-    """
+    def check_trade_viability(self, symbol, action, quantity, price, current_positions):
+        """
+        Automatically adjust position size to stay within risk limits.
+        Prevents trade rejection by scaling down quantity safely.
+        """
 
-    # Reset daily metrics
-    self.reset_daily_metrics()
+        # Reset daily metrics
+        self.reset_daily_metrics()
 
-    # Price sanity
-    if price is None or price <= 0:
-        return False, "Invalid price"
+        # Price check
+        if price is None or price <= 0:
+            return False, "Invalid price"
 
-    # Calculate portfolio value
-    current_portfolio_value = sum([
-        pos.get("quantity", 0) * pos.get("entry_price", 0)
-        for pos in current_positions.values()
-        if pos.get("entry_price", 0) > 0
-    ])
+        # Estimated portfolio value
+        current_portfolio_value = sum([
+            pos.get("quantity", 0) * pos.get("entry_price", 0)
+            for pos in current_positions.values()
+            if pos.get("entry_price", 0) > 0
+        ])
 
-    # If nothing in portfolio, approximate
-    if current_portfolio_value <= 0:
-        current_portfolio_value = price * max(quantity, 1)
+        # If nothing in portfolio, approximate
+        if current_portfolio_value <= 0:
+            current_portfolio_value = price * max(quantity, 1)
 
-    requested_value = quantity * price
-
-    # 20% concentration limit
-    MAX_CONCENTRATION = 0.20
-    max_allowed_value = max(current_portfolio_value * MAX_CONCENTRATION, 1)
-
-    # Auto-scaled position if needed
-    if requested_value > max_allowed_value:
-        adjusted_qty = int(max_allowed_value // price)
-        if adjusted_qty < 1:
-            adjusted_qty = 1
-
-        try:
-            if st.session_state.get("debug", False):
-                st.warning(
-                    f"{symbol}: Auto-adjusted {quantity} → {adjusted_qty} due to concentration limits."
-                )
-        except:
-            pass
-
-        quantity = adjusted_qty
         requested_value = quantity * price
 
-    # Absolute 50% hard cap
-    HARD_CAP = 0.50
-    hard_cap_value = current_portfolio_value * HARD_CAP
+        # Concentration limit: 20%
+        MAX_CONCENTRATION = 0.20
+        max_allowed_value = max(current_portfolio_value * MAX_CONCENTRATION, 1)
 
-    if requested_value > hard_cap_value:
-        adjusted_qty = int(hard_cap_value // price)
-        adjusted_qty = max(1, adjusted_qty)
-        quantity = adjusted_qty
+        # Auto-scale if violating concentration limit
+        if requested_value > max_allowed_value:
+            adjusted_qty = int(max_allowed_value // price)
+            if adjusted_qty < 1:
+                adjusted_qty = 1
 
-        try:
-            if st.session_state.get("debug", False):
-                st.warning(
-                    f"{symbol}: Further auto-scaling → {adjusted_qty} due to hard cap."
-                )
-        except:
-            pass
+            try:
+                if st.session_state.get("debug", False):
+                    st.warning(
+                        f"{symbol}: Auto-adjusted {quantity} → {adjusted_qty} due to concentration limit."
+                    )
+            except:
+                pass
 
-    # Daily loss stop
-    if self.daily_pnl < -self.max_daily_loss:
-        return False, "Daily loss limit exceeded"
+            quantity = adjusted_qty
+            requested_value = quantity * price
 
-    return True, f"Trade viable (final adjusted quantity: {quantity})"
+        # Absolute hard cap: 50%
+        HARD_CAP = 0.50
+        hard_cap_value = current_portfolio_value * HARD_CAP
+
+        if requested_value > hard_cap_value:
+            adjusted_qty = int(hard_cap_value // price)
+            adjusted_qty = max(1, adjusted_qty)
+
+            try:
+                if st.session_state.get("debug", False):
+                    st.warning(
+                        f"{symbol}: Further auto-scaling → {adjusted_qty} due to hard cap safety."
+                    )
+            except:
+                pass
+
+            quantity = adjusted_qty
+
+        # Daily loss stop
+        if self.daily_pnl < -self.max_daily_loss:
+            return False, "Daily loss limit exceeded"
+
+        return True, f"Trade viable (final adjusted quantity: {quantity})"
+
 
 # NEW: Machine Learning Signal Enhancer
 class MLSignalEnhancer:
@@ -3408,6 +3410,7 @@ except Exception as e:
     st.info("Please refresh the page and try again")
     logger.error(f"Application crash: {e}")
     st.code(traceback.format_exc())
+
 
 
 
