@@ -2481,6 +2481,8 @@ class MultiStrategyIntradayTrader:
 
     def generate_quality_signals(self, universe, max_scan=None, min_confidence=0.7, min_score=6, use_high_accuracy=True):
         signals = []
+        
+        # Determine which universe to scan
         if universe == "Nifty 50":
             stocks = NIFTY_50
         elif universe == "Nifty 100":
@@ -2492,35 +2494,37 @@ class MultiStrategyIntradayTrader:
         else:
             stocks = NIFTY_50
         
-        # FIX: Properly handle max_scan parameter
+        # FIX: Handle max_scan properly - if None, scan ALL stocks
         if max_scan is not None and max_scan < len(stocks):
             stocks_to_scan = stocks[:max_scan]
         else:
-            stocks_to_scan = stocks  # Scan ALL stocks when max_scan is None
+            stocks_to_scan = stocks  # This will scan ALL stocks when max_scan is None
         
         # Show progress
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        # NEW: Get market regime for context
+        # Get market regime for context
         market_regime = self.data_manager.get_market_regime()
         st.info(f"📊 Current Market Regime: **{market_regime}** | Universe: **{universe}** | Stocks to scan: **{len(stocks_to_scan)}** | High Accuracy: **{'ON' if use_high_accuracy else 'OFF'}**")
         
         for idx, symbol in enumerate(stocks_to_scan):
             try:
+                # Show progress
                 status_text.text(f"Scanning {symbol} ({idx+1}/{len(stocks_to_scan)})")
                 progress_bar.progress((idx + 1) / len(stocks_to_scan))
+                
+                # Get stock data
                 data = self.data_manager.get_stock_data(symbol, "15m")
                 if data is None or len(data) < 30:
                     continue
                 
-                # CHANGED: Always use high accuracy strategies when enabled
+                # Generate high accuracy signals when enabled
                 if use_high_accuracy:
-                    # Use high accuracy strategies for all stocks
                     high_acc_signals = self.generate_high_accuracy_signals(symbol, data)
                     signals.extend(high_acc_signals)
                 
-                # Also include standard strategies
+                # Generate standard strategy signals
                 standard_signals = self.generate_strategy_signals(symbol, data)
                 signals.extend(standard_signals)
                     
@@ -2534,7 +2538,7 @@ class MultiStrategyIntradayTrader:
         # Filter signals based on confidence and score
         signals = [s for s in signals if s.get("confidence", 0) >= min_confidence and s.get("score", 0) >= min_score]
         
-        # NEW: Apply high-quality filtering
+        # Apply high-quality filtering
         if len(signals) > 0:
             filtered_signals = self.data_manager.filter_high_quality_signals(signals)
             st.info(f"📊 Filtered {len(signals)} → {len(filtered_signals)} high-quality signals")
@@ -2546,7 +2550,7 @@ class MultiStrategyIntradayTrader:
         # Store in history
         self.signal_history = signals[:30]
         
-        return signals[:20]
+        return signals[:20]  # Return top 20 signals
 
     def auto_execute_signals(self, signals):
         """Auto-execute signals with enhanced feedback"""
@@ -2973,10 +2977,15 @@ try:
     min_score = st.sidebar.slider("Minimum Score", 6, 10, 7, 1, 
                                  help="Increased from 6 to 7 for better quality")
     
-    # UPDATED: Scan limit options
-    scan_limit = st.sidebar.selectbox("Scan Limit", ["Full Scan (All Stocks)", "Top 100", "Top 50"], index=0)
-    max_scan_map = {"Full Scan (All Stocks)": None, "Top 100": 100, "Top 50": 50}
-    max_scan = max_scan_map[scan_limit]
+    # FIXED: Scan Configuration - Simplified
+    st.sidebar.subheader("🔍 Scan Configuration")
+    full_scan = st.sidebar.checkbox("Full Universe Scan", value=True, 
+                                   help="Scan entire universe. Uncheck to limit scanning.")
+    
+    if not full_scan:
+        max_scan = st.sidebar.number_input("Max Stocks to Scan", min_value=10, max_value=500, value=50, step=10)
+    else:
+        max_scan = None  # This will scan ALL stocks when full_scan is True
 
     # Add debug toggle in sidebar
     st.sidebar.subheader("🛠️ Debug Settings")
@@ -3144,7 +3153,7 @@ try:
                 # Use high accuracy when enabled
                 signals = trader.generate_quality_signals(
                     universe, 
-                    max_scan=max_scan, 
+                    max_scan=max_scan,  # Use the corrected max_scan parameter
                     min_confidence=min_conf_percent/100.0, 
                     min_score=min_score,
                     use_high_accuracy=enable_high_accuracy
@@ -3272,7 +3281,23 @@ try:
                             else:
                                 st.error(msg)
             else:
-                st.info("No confirmed signals with current filters. Try lowering confidence threshold or checking market hours.")
+                # Provide helpful feedback when no signals are found
+                if market_open():
+                    st.warning("""
+                    **No signals found. Possible reasons:**
+                    1. **Market Regime**: Current market regime (**{}**) may not be favorable for the selected strategies.
+                    2. **Strict Filters**: High confidence ({}%), score ({}) and risk-reward (2.5:1) filters are active.
+                    3. **Volume Requirement**: Minimum 30% above average volume required.
+                    4. **Time of Day**: Some strategies work better at specific times.
+                    
+                    **Suggestions:**
+                    - Try lowering confidence threshold to 70%
+                    - Try lowering minimum score to 6
+                    - Check if market is trending (look at ADX > 25)
+                    - Scan during peak market hours (10 AM - 2 PM)
+                    """.format(market_regime, min_conf_percent, min_score))
+                else:
+                    st.info("Market is closed. Signals are only generated during market hours (9:15 AM - 3:30 PM).")
         else:
             # Show auto-execution status when no signals generated
             if trader.auto_execution:
