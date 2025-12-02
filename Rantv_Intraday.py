@@ -80,7 +80,7 @@ CAPITAL = 2_000_000.0
 TRADE_ALLOC = 0.15
 MAX_DAILY_TRADES = 10
 MAX_STOCK_TRADES = 10
-MAX_AUTO_TRADES = 05
+MAX_AUTO_TRADES = 10
 
 SIGNAL_REFRESH_MS = 120000
 PRICE_REFRESH_MS = 100000
@@ -3362,3 +3362,4 @@ except Exception as e:
     st.info("Please refresh the page and try again")
     logger.error(f"Application crash: {e}")
     st.code(traceback.format_exc())
+
