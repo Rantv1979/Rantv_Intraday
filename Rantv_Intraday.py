@@ -77,7 +77,7 @@ IND_TZ = pytz.timezone("Asia/Kolkata")
 
 # Trading Constants
 CAPITAL = 2_000_000.0
-TRADE_ALLOC = 0.10
+TRADE_ALLOC = 0.05
 MAX_DAILY_TRADES = 15
 MAX_STOCK_TRADES = 15
 MAX_AUTO_TRADES = 15
@@ -3362,4 +3362,5 @@ except Exception as e:
     st.info("Please refresh the page and try again")
     logger.error(f"Application crash: {e}")
     st.code(traceback.format_exc())
+
 
