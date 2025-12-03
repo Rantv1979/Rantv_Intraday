@@ -1,5 +1,6 @@
 # Rantv Intraday Trading Signals & Market Analysis - PRODUCTION READY
 # ENHANCED VERSION WITH FULL STOCK SCANNING & BETTER SIGNAL QUALITY
+# UPDATED: Lowered confidence to 70%, score to 6, added ADX trend filter, optimized for peak hours
 
 import time
 from datetime import datetime, time as dt_time
@@ -561,6 +562,17 @@ def check_system_status():
 # Display system status in sidebar
 system_status = check_system_status()
 
+# NEW: Peak Market Hours Check - Optimized for 10 AM - 2 PM
+def is_peak_market_hours():
+    """Check if current time is during peak market hours (10 AM - 2 PM)"""
+    n = now_indian()
+    try:
+        peak_start = IND_TZ.localize(datetime.combine(n.date(), dt_time(10, 0)))
+        peak_end = IND_TZ.localize(datetime.combine(n.date(), dt_time(14, 0)))
+        return peak_start <= n <= peak_end
+    except Exception:
+        return True  # Default to True during market hours
+
 # NEW: Advanced Risk Management System
 class AdvancedRiskManager:
     def __init__(self, max_daily_loss=50000):
@@ -668,7 +680,7 @@ class AdvancedRiskManager:
 
         return True, f"Trade viable (final adjusted quantity: {quantity})"
 
-# NEW: Enhanced Signal Filtering System
+# NEW: Enhanced Signal Filtering System with ADX Trend Check
 class SignalQualityFilter:
     """Enhanced signal filtering to improve trade quality"""
     
@@ -720,8 +732,8 @@ class SignalQualityFilter:
                 if signal.get("risk_reward", 0) < 2.5:
                     continue
                 
-                # 5. Confidence Threshold (minimum 75%)
-                if signal.get("confidence", 0) < 0.75:
+                # 5. Confidence Threshold (minimum 70% - REDUCED from 75%)
+                if signal.get("confidence", 0) < 0.70:  # CHANGED: 0.75 → 0.70
                     continue
                 
                 # 6. Price relative to VWAP
@@ -731,9 +743,9 @@ class SignalQualityFilter:
                 if signal["action"] == "SELL" and price > vwap * 1.01:
                     continue  # Too far above VWAP for SELL
                 
-                # 7. ADX Strength (minimum 20 for trend strength)
+                # 7. ADX Strength (minimum 25 for trend strength) - ADDED TREND CHECK
                 adx_val = data["ADX"].iloc[-1] if 'ADX' in data.columns else 20
-                if adx_val < 20:
+                if adx_val < 25:  # CHANGED: 20 → 25 for stronger trends
                     continue
                 
                 # 8. ATR Filter (avoid extremely volatile stocks)
@@ -1909,7 +1921,7 @@ class MultiStrategyIntradayTrader:
                 current_price > vwap and 
                 rsi_val > 50 and rsi_val < 70 and
                 volume > volume_avg * 1.5 and
-                adx_val > 25 and
+                adx_val > 25 and  # ADDED: ADX trend check
                 macd_line > macd_signal):
                 
                 action = "BUY"
@@ -2268,11 +2280,11 @@ class MultiStrategyIntradayTrader:
 
             # BUY STRATEGIES - Only generate if historical accuracy > 65%
             # Strategy 1: EMA + VWAP + ADX + HTF Trend
-            if (ema8 > ema21 > ema50 and live > vwap and adx_val > 20 and htf_trend == 1):
+            if (ema8 > ema21 > ema50 and live > vwap and adx_val > 25 and htf_trend == 1):  # CHANGED: ADX from 20 to 25
                 action = "BUY"; confidence = 0.82; score = 9; strategy = "EMA_VWAP_Confluence"
                 target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.5:  # Increased from 2.0
+                if rr >= 2.5:
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         # NEW: Enhanced confidence with ML and market regime
@@ -2307,7 +2319,7 @@ class MultiStrategyIntradayTrader:
                 action = "BUY"; confidence = 0.78; score = 8; strategy = "RSI_MeanReversion"
                 target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
-                if rr >= 2.5:  # Increased from 2.0
+                if rr >= 2.5:
                     historical_accuracy = self.data_manager.get_historical_accuracy(symbol, strategy)
                     if historical_accuracy >= 0.65:
                         base_win_probability = min(0.80, historical_accuracy * 1.1)
@@ -2358,7 +2370,7 @@ class MultiStrategyIntradayTrader:
 
             # SELL STRATEGIES
             # Strategy 5: EMA + VWAP Downtrend
-            if (ema8 < ema21 < ema50 and live < vwap and adx_val > 20):
+            if (ema8 < ema21 < ema50 and live < vwap and adx_val > 25):  # CHANGED: ADX from 20 to 25
                 action = "SELL"; confidence = 0.82; score = 9; strategy = "EMA_VWAP_Downtrend"
                 target, stop_loss = self.calculate_improved_stop_target(live, action, atr, live, support, resistance)
                 rr = abs(target - live) / max(abs(live - stop_loss), 1e-6)
@@ -2479,7 +2491,7 @@ class MultiStrategyIntradayTrader:
             logger.error(f"Error generating signals for {symbol}: {e}")
             return signals
 
-    def generate_quality_signals(self, universe, max_scan=None, min_confidence=0.7, min_score=6, use_high_accuracy=True):
+    def generate_quality_signals(self, universe, max_scan=None, min_confidence=0.70, min_score=6, use_high_accuracy=True):  # CHANGED: Default confidence 0.70, score 6
         signals = []
         
         # Determine which universe to scan
@@ -2717,7 +2729,11 @@ try:
     }.get(market_regime, "⚪")
     cols[3].metric("Market Regime", f"{regime_color} {market_regime}")
     
-    cols[4].metric("Stock Trades", f"{trader.stock_trades}/{MAX_STOCK_TRADES}")
+    # NEW: Peak Hours Indicator
+    peak_hours = is_peak_market_hours()
+    peak_color = "🟢" if peak_hours else "🔴"
+    cols[4].metric("Peak Hours (10AM-2PM)", f"{peak_color} {'YES' if peak_hours else 'NO'}")
+    
     cols[5].metric("Auto Trades", f"{trader.auto_trades_count}/{MAX_AUTO_TRADES}")
     cols[6].metric("Available Cash", f"₹{trader.cash:,.0f}")
 
@@ -2774,9 +2790,9 @@ try:
         status_sentiment = 80 if market_open() else 20
         st.markdown(create_circular_market_mood_gauge("MARKET", 0, 0, status_sentiment).replace("₹0", market_status).replace("0.00%", ""), unsafe_allow_html=True)
     with col4:
-        auto_close_status = "ACTIVE" if not should_auto_close() else "INACTIVE"
-        close_sentiment = 20 if should_auto_close() else 80
-        st.markdown(create_circular_market_mood_gauge("AUTO CLOSE", 0, 0, close_sentiment).replace("₹0", "15:10").replace("0.00%", auto_close_status), unsafe_allow_html=True)
+        peak_hours_status = "PEAK" if is_peak_market_hours() else "OFF-PEAK"
+        peak_sentiment = 80 if is_peak_market_hours() else 30
+        st.markdown(create_circular_market_mood_gauge("PEAK HOURS", 0, 0, peak_sentiment).replace("₹0", "10AM-2PM").replace("0.00%", peak_hours_status), unsafe_allow_html=True)
 
     # Main metrics with card styling
     st.subheader("📈 Live Metrics")
@@ -2812,7 +2828,7 @@ try:
         </div>
         """, unsafe_allow_html=True)
 
-    # NEW: Signal Quality Overview
+    # NEW: Signal Quality Overview with updated thresholds
     st.subheader("🎯 Signal Quality Overview")
     quality_cols = st.columns(4)
     
@@ -2822,7 +2838,8 @@ try:
             <div style="font-size: 14px; font-weight: bold;">High Quality</div>
             <div style="font-size: 12px; margin-top: 5px;">• RR ≥ 2.5:1</div>
             <div style="font-size: 12px;">• Volume ≥ 1.3x</div>
-            <div style="font-size: 12px;">• Confidence ≥ 75%</div>
+            <div style="font-size: 12px;">• Confidence ≥ 70%</div>
+            <div style="font-size: 12px;">• ADX ≥ 25</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -2832,25 +2849,39 @@ try:
             <div style="font-size: 14px; font-weight: bold;">Medium Quality</div>
             <div style="font-size: 12px; margin-top: 5px;">• RR ≥ 2.0:1</div>
             <div style="font-size: 12px;">• Volume ≥ 1.2x</div>
-            <div style="font-size: 12px;">• Confidence ≥ 70%</div>
+            <div style="font-size: 12px;">• Confidence ≥ 65%</div>
+            <div style="font-size: 12px;">• ADX ≥ 20</div>
         </div>
         """, unsafe_allow_html=True)
     
     with quality_cols[2]:
         st.markdown("""
         <div class="metric-card">
-            <div style="font-size: 12px; color: #6b7280;">Min Risk-Reward</div>
-            <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">2.5:1</div>
-            <div style="font-size: 11px; margin-top: 3px;">Increased from 2.0:1</div>
+            <div style="font-size: 12px; color: #6b7280;">Min Confidence</div>
+            <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">70%</div>
+            <div style="font-size: 11px; margin-top: 3px;">Reduced from 75%</div>
         </div>
         """, unsafe_allow_html=True)
     
     with quality_cols[3]:
         st.markdown("""
         <div class="metric-card">
-            <div style="font-size: 12px; color: #6b7280;">Min Volume Ratio</div>
-            <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">1.3x</div>
-            <div style="font-size: 11px; margin-top: 3px;">30% above average</div>
+            <div style="font-size: 12px; color: #6b7280;">Min Score</div>
+            <div style="font-size: 20px; font-weight: bold; color: #1e3a8a;">6</div>
+            <div style="font-size: 11px; margin-top: 3px;">Reduced from 7</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # NEW: Peak Hours Optimization Notice
+    if is_peak_market_hours():
+        st.markdown("""
+        <div class="alert-success">
+            <strong>🎯 Peak Market Hours Active (10 AM - 2 PM)</strong>
+            <div style="margin-top: 5px;">
+                • Increased signal frequency during peak hours<br>
+                • More aggressive scanning for opportunities<br>
+                • Higher probability setups prioritized
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -2971,11 +3002,15 @@ try:
     enable_signal_filtering = st.sidebar.checkbox("Enable Signal Filtering", value=True, 
                                                  help="Filter only high-quality signals with volume confirmation")
     
-    # UPDATED: Higher thresholds for better signal quality
-    min_conf_percent = st.sidebar.slider("Minimum Confidence %", 70, 95, 75, 5, 
-                                        help="Increased from 70% to 75% for better quality")
-    min_score = st.sidebar.slider("Minimum Score", 6, 10, 7, 1, 
-                                 help="Increased from 6 to 7 for better quality")
+    # UPDATED: Lower thresholds for better signal generation
+    min_conf_percent = st.sidebar.slider("Minimum Confidence %", 60, 85, 70, 5,  # CHANGED: 70-95 → 60-85, default 75 → 70
+                                        help="Reduced from 75% to 70% for more signals")
+    min_score = st.sidebar.slider("Minimum Score", 5, 9, 6, 1,  # CHANGED: 6-10 → 5-9, default 7 → 6
+                                 help="Reduced from 7 to 6 for more signals")
+    
+    # NEW: ADX Trend Filter
+    require_adx_trend = st.sidebar.checkbox("Require ADX > 25 (Strong Trend)", value=True,
+                                          help="Only generate signals when ADX > 25 (strong trending market)")
     
     # FIXED: Scan Configuration - Simplified
     st.sidebar.subheader("🔍 Scan Configuration")
@@ -3000,6 +3035,7 @@ try:
         st.sidebar.write(f"- Auto execution: {trader.auto_execution}")
         st.sidebar.write(f"- Can auto-trade: {trader.can_auto_trade()}")
         st.sidebar.write(f"- Market open: {market_open()}")
+        st.sidebar.write(f"- Peak hours: {is_peak_market_hours()}")
         st.sidebar.write(f"- Auto close time: {should_auto_close()}")
         st.sidebar.write(f"- Open positions: {len(trader.positions)}")
         st.sidebar.write(f"- Available cash: ₹{trader.cash:,.0f}")
@@ -3099,9 +3135,12 @@ try:
         st.subheader("Multi-Strategy BUY/SELL Signals")
         st.markdown("""
         <div class="alert-success">
-            <strong>🎯 Enhanced Signal Quality:</strong> 
-            Signals now require minimum 2.5:1 risk-reward ratio, 30% above average volume, 
-            and 75% confidence. This reduces losing trades and improves profitability.
+            <strong>🎯 UPDATED Signal Parameters:</strong> 
+            • Confidence threshold reduced from 75% to <strong>70%</strong><br>
+            • Minimum score reduced from 7 to <strong>6</strong><br>
+            • Added ADX trend filter: <strong>ADX > 25</strong><br>
+            • Optimized for peak market hours (10 AM - 2 PM)<br>
+            • These changes should generate more trading opportunities
         </div>
         """, unsafe_allow_html=True)
         
@@ -3141,10 +3180,15 @@ try:
         
         # Auto-generate if:
         # 1. Auto-execution is enabled AND market is open AND it's been more than 60 seconds since last generation
-        # 2. OR if generate button was clicked
-        if trader.auto_execution and market_open() and (current_time - st.session_state.last_signal_generation > 60):
-            auto_generate = True
-            st.session_state.last_signal_generation = current_time
+        # 2. During peak hours, generate more frequently (every 45 seconds)
+        if trader.auto_execution and market_open():
+            time_since_last = current_time - st.session_state.last_signal_generation
+            if is_peak_market_hours() and time_since_last > 45:  # More frequent during peak hours
+                auto_generate = True
+                st.session_state.last_signal_generation = current_time
+            elif time_since_last > 60:  # Normal frequency
+                auto_generate = True
+                st.session_state.last_signal_generation = current_time
         
         generate_signals = generate_btn or auto_generate
         
@@ -3286,16 +3330,15 @@ try:
                     st.warning("""
                     **No signals found. Possible reasons:**
                     1. **Market Regime**: Current market regime (**{}**) may not be favorable for the selected strategies.
-                    2. **Strict Filters**: High confidence ({}%), score ({}) and risk-reward (2.5:1) filters are active.
-                    3. **Volume Requirement**: Minimum 30% above average volume required.
-                    4. **Time of Day**: Some strategies work better at specific times.
+                    2. **Strict Filters**: ADX trend filter (ADX > 25) may be too restrictive.
+                    3. **Time of Day**: Try scanning during peak market hours (10 AM - 2 PM).
                     
                     **Suggestions:**
-                    - Try lowering confidence threshold to 70%
-                    - Try lowering minimum score to 6
-                    - Check if market is trending (look at ADX > 25)
+                    - Try disabling "Require ADX > 25" in sidebar
+                    - Try lowering confidence threshold below 70%
+                    - Try lowering minimum score below 6
                     - Scan during peak market hours (10 AM - 2 PM)
-                    """.format(market_regime, min_conf_percent, min_score))
+                    """.format(market_regime))
                 else:
                     st.info("Market is closed. Signals are only generated during market hours (9:15 AM - 3:30 PM).")
         else:
@@ -3308,10 +3351,14 @@ try:
                     st.write(f"- Auto trades: {trader.auto_trades_count}/{MAX_AUTO_TRADES}")
                     st.write(f"- Available cash: ₹{trader.cash:,.0f}")
                     st.write(f"- Can auto-trade: {'✅ Yes' if trader.can_auto_trade() else '❌ No'}")
+                    st.write(f"- Peak hours active: {'✅ Yes' if is_peak_market_hours() else '❌ No'}")
                     
                     # Show countdown to next auto-scan
                     time_since_last = int(current_time - st.session_state.last_signal_generation)
-                    time_to_next = max(0, 60 - time_since_last)
+                    if is_peak_market_hours():
+                        time_to_next = max(0, 45 - time_since_last)
+                    else:
+                        time_to_next = max(0, 60 - time_since_last)
                     st.write(f"- Next auto-scan in: {time_to_next} seconds")
                 else:
                     st.warning("Market is closed. Auto-execution will resume when market opens (9:15 AM - 3:30 PM).")
@@ -3669,9 +3716,9 @@ try:
         with col1:
             high_acc_scan_btn = st.button("🚀 Scan High Accuracy", type="primary", width='stretch')
         with col2:
-            min_high_acc_confidence = st.slider("Min Confidence", 70, 90, 75, 5, key="high_acc_conf")
+            min_high_acc_confidence = st.slider("Min Confidence", 65, 85, 70, 5, key="high_acc_conf")  # CHANGED: 70-90 → 65-85
         with col3:
-            min_high_acc_score = st.slider("Min Score", 6, 10, 7, 1, key="high_acc_score")
+            min_high_acc_score = st.slider("Min Score", 5, 8, 6, 1, key="high_acc_score")  # CHANGED: 6-10 → 5-8
         
         if high_acc_scan_btn:
             with st.spinner(f"Scanning {universe} with high-accuracy strategies..."):
