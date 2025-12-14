@@ -2533,15 +2533,10 @@ class MultiStrategyIntradayTrader:
         status_text = st.empty()
 
         market_regime = self.data_manager.get_market_regime()
-        st.info(
-            f"📊 Current Market Regime: **{market_regime}**  
-"
-            f"Universe: **{universe}**  
-"
-            f"Stocks to scan: **{len(stocks_to_scan)}**  
-"
-            f"High Accuracy: **{'ON' if use_high_accuracy else 'OFF'}**"
-        )
+        st.info(f"📊 Current Market Regime: **{market_regime}**
+Universe: **{universe}**
+Stocks to scan: **{len(stocks_to_scan)}**
+High Accuracy: **{'ON' if use_high_accuracy else 'OFF'}**")
 
         for idx, symbol in enumerate(stocks_to_scan):
             try:
